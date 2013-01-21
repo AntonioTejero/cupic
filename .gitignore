@@ -1,0 +1,7 @@
+*.[oa]
+*~
+./bin/
+!./bin/README
+./data/
+!./data/README
+
