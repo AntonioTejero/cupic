@@ -1,7 +1,6 @@
 *.[oa]
 *~
-./bin/
+*.swp
+bin/*
 !./bin/README
-./data/
-!./data/README
 
