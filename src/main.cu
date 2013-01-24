@@ -21,18 +21,31 @@ using namespace std;
 
 #define PI 3.1415926535897932		//symbolic constant for PI
 
+struct particle
+{
+  double x;
+  double y;
+  double vx;
+  double vy;
+}
+
+/****************************** FUNCTION PROTOTIPES ******************************/
+
+void read_particle_properties (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte);
 
 /****************************** MAIN FUNCTION ******************************/
 
 int main (int argc, const char* argv[])
 {
-  
   // host variables definition
-  double **h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte;  //properties of particles
-  
+  double *h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte;  //properties of particles
+  double *h_rho, *h_phi, *h_Ex, *h_Ey;                //properties of mesh
+  particle *h_e, *h_i;                                //vector of electron and ions
 
   // device variables definition
   double *d_qi, *d_qe, *d_mi, *d_me, *d_kti, *d_kte;  //properties of particles
+  double *d_rho, *d_phi, *d_Ex, *d_Ey;                //properties of mesh
+  particle *d_e, *d_i;                                //vector of electron and ions
 
 
   gsl_rng_env_setup();
@@ -45,6 +58,19 @@ int main (int argc, const char* argv[])
 }
 
 /****************************** FUNCTION DEFINITION ******************************/
+
+void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i)
+{
+  // allocate host memory for particle properties
+  *h_qi = double malloc(sizeof(double));
+  *h_qe = double malloc(sizeof(double));
+  *h_mi = double malloc(sizeof(double));
+  *h_me = double malloc(sizeof(double));
+  *h_kti = double malloc(sizeof(double));
+  *h_kte = double malloc(sizeof(double));
+
+  return; 
+}
 
 void read_particle_properties (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte)
 {
