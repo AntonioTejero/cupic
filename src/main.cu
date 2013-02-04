@@ -14,8 +14,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include <gsl/gsl_rng.h>	  		//gsl library for random number generation
-#include <gsl/gsl_randist.h>		//gsl library for random number generation
+#include <gsl/gsl_rng.h>        //gsl library for random number generation
+#include <gsl/gsl_randist.h>    //gsl library for random number generation
 
 using namespace std;
 
@@ -69,6 +69,14 @@ int main (int argc, const char* argv[])
 
 void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i)
 {
+  // function variables
+  int N;                                          //initial number of particle of each species
+  int ncx, ncy;                                   //number of grid points in each dimension
+  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); //default random number generator (gsl)
+  
+  // initialize enviromental variables for gsl random number generator
+  gsl_rng_env_setup();
+  
   // allocate host memory for particle properties
   *h_qi = (double*) malloc(sizeof(double));
   *h_qe = (double*) malloc(sizeof(double));
@@ -76,10 +84,33 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   *h_me = (double*) malloc(sizeof(double));
   *h_kti = (double*) malloc(sizeof(double));
   *h_kte = (double*) malloc(sizeof(double));
-
-  // read input file
-  read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
-
+  
+  // allocate host memory for plasma properties
+  *h_n = (double*) malloc(sizeof(double));
+  
+  // allocate host memory for probe properties
+  *h_phi_p = (double*) malloc(sizeof(double));
+  
+  // allocate host memory for geometrical properties of simulation
+  *h_Lx = (double*) malloc(sizeof(double));
+  *h_Ly = (double*) malloc(sizeof(double));
+  *h_dx = (double*) malloc(sizeof(double));
+  *h_dy = (double*) malloc(sizeof(double));
+  *h_dz = (double*) malloc(sizeof(double));
+  
+  // allocate host memory for electromagnetic properties
+  *h_epsilon = (double*) malloc(sizeof(double));
+  
+  // allocate host memory for mesh properties
+  *h_rho = (double*) malloc(sizeof(double));
+  *h_phi = (double*) malloc(sizeof(double));
+  *h_Ex = (double*) malloc(sizeof(double));
+  *h_Ey = (double*) malloc(sizeof(double));
+  
+  // allocate host memory for timing variables
+  *h_t = (double*) malloc(sizeof(double));
+  *h_dt = (double*) malloc(sizeof(double));
+  
   // allocate device memory for particle properties
   cudaMalloc (d_qi, sizeof(double));
   cudaMalloc (d_qe, sizeof(double));
@@ -87,7 +118,89 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMalloc (d_me, sizeof(double));
   cudaMalloc (d_kti, sizeof(double));
   cudaMalloc (d_kte, sizeof(double));
+  
+  // allocate device memory for plasma properties
+  cudaMalloc (d_n, sizeof(double));
+  
+  // allocate device memory for probe properties
+  cudaMalloc (d_phi_p, sizeof(double));
+  
+  // allocate device memory for geometrical properties of simulation
+  cudaMalloc (d_Lx, sizeof(double));
+  cudaMalloc (d_Ly, sizeof(double));
+  cudaMalloc (d_dx, sizeof(double));
+  cudaMalloc (d_dy, sizeof(double));
+  cudaMalloc (d_dz, sizeof(double));
+  
+  // allocate device memory for electromagnetic properties
+  cudaMalloc (d_epsilon, sizeof(double));
+  
+  // allocate device memory for mesh properties
+  cudaMalloc (d_rho, sizeof(double));
+  cudaMalloc (d_phi, sizeof(double));
+  cudaMalloc (d_Ex, sizeof(double));
+  cudaMalloc (d_Ey, sizeof(double));
+  
+  // allocate device memory for timing variables
+  cudaMalloc (d_t, sizeof(double));
+  cudaMalloc (d_dt, sizeof(double));
 
+  // read input file
+  read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
+  
+  // calculate initial number of particles
+  N = (**h_Lx)*(**h_Ly)*(**h_dz)*(**h_n);
+  ncx = (**h_Lx)/(**h_dx)+1;
+  ncy = (**h_Ly)/(**h_dy)+1;
+  
+  // allocate host memory for particle vectors
+  *h_i = (particle*) malloc(N*sizeof(particle));
+  *h_e = (particle*) malloc(N*sizeof(particle));
+  
+  // allocate host memory for mesh variables
+  *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
+  *h_phi = (double*) malloc(ncx*ncy*sizeof(double));
+  *h_Ex = (double*) malloc(ncx*ncy*sizeof(double));
+  *h_Ey = (double*) malloc(ncx*ncy*sizeof(double));
+  
+  // allocate device memory for particle vectors
+  cudaMalloc (d_i, N*sizeof(particle));
+  cudaMalloc (d_e, N*sizeof(particle));
+  
+  // allocate device memory for mesh variables
+  cudaMalloc (d_rho, ncx*ncy*sizeof(double));
+  cudaMalloc (d_phi, ncx*ncy*sizeof(double));
+  cudaMalloc (d_Ex, ncx*ncy*sizeof(double));
+  cudaMalloc (d_Ey, ncx*ncy*sizeof(double));
+  
+  // initialize particle vectors (host memory)
+  for (int i = 0; i < N; i++) 
+  {
+    // initialize ions
+    (*h_i)[i].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+    (*h_i)[i].y = gsl_rng_uniform_pos(rng)*(**h_Lx);
+    (*h_i)[i].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+    (*h_i)[i].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+    
+    // initialize electrons
+    (*h_e)[i].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+    (*h_e)[i].y = gsl_rng_uniform_pos(rng)*(**h_Lx);
+    (*h_e)[i].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+    (*h_e)[i].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+  }  
+  
+  //initialize mesh variables (host memory)
+  for (int im = 0; im < ncx; im++)
+  {
+    for (int jm = 0; jm < ncy; jm++)
+    {
+      (*h_Ex)[im+jm*(ncx)] = 0.0;
+      (*h_Ey)[im+jm*(ncx)] = 0.0;
+      (*h_rho)[im+jm*(ncx)] = 0.0;
+      (*h_phi)[im+jm*(ncx)] = (1.0 - double(jm)/double(ncy-1))*(**h_phi_p);
+    }
+  }
+  
   // copy particle properties from host to device memory
   cudaMemcpy (*d_qi, *h_qi, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_qe, *h_qe, sizeof(double), cudaMemcpyHostToDevice);
@@ -96,9 +209,40 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMemcpy (*d_kti, *h_kti, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_kte, *h_kte, sizeof(double), cudaMemcpyHostToDevice);
 
+  // copy plasma properties from host to device memory
+  cudaMemcpy (*d_n, *h_n, sizeof(double), cudaMemcpyHostToDevice);
 
+  // copy probe properties from host to device memory
+  cudaMemcpy (*d_phi_p, *h_phi_p, sizeof(double), cudaMemcpyHostToDevice);
+  
+  // copy geometrical properties from host to device memory
+  cudaMemcpy (*d_Lx, *h_Lx, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_Ly, *h_Ly, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_dx, *h_dx, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_dy, *h_dy, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_dz, *h_dz, sizeof(double), cudaMemcpyHostToDevice);
+
+  // copy electromagnetic properties from host to device memory
+  cudaMemcpy (*d_epsilon, *h_epsilon, sizeof(double), cudaMemcpyHostToDevice);
+  
+  // copy mesh properties from host to device memory
+  cudaMemcpy (*d_rho, *h_rho, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_phi, *h_phi, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_Ex, *h_Ex, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_Ey, *h_Ey, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
+  
+  // copy timing variables from host to device memory
+  cudaMemcpy (*d_t, *h_t, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_dt, *h_dt, sizeof(double), cudaMemcpyHostToDevice);
+  
+  // copy particle vectors from host to device memory
+  cudaMemcpy (*d_i, *h_i, N*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e, *h_e, N*sizeof(double), cudaMemcpyHostToDevice);
+  
   return;
 }
+
+/**********************************************************/
 
 void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte, double *h_phi_p, double *h_n, double *h_Lx, double *h_Ly, double *h_dx, double *h_dy, double *h_dz, double *h_t, double *h_dt, double *h_epsilon)
 {
@@ -156,7 +300,15 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
   } else
   {
     cout << "input data file could not be opened" << endl;
+    exit(1);
   }
 
   return;
 }
+
+/**********************************************************/
+
+
+
+/**********************************************************/
+
