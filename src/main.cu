@@ -48,6 +48,8 @@ int main (int argc, const char* argv[])
   double *h_rho, *h_phi, *h_Ex, *h_Ey;                //properties of mesh (charge density, potential and fields at point of the mesh)
   double *h_t, *h_dt;                                 //timing variables (simulation time and time step)
   particle *h_e, *h_i;                                //vector of electron and ions
+  unsigned int *h_bookmarke;                          //vector that stores the endpoint of each particle bin (electrons)
+  unsigned int *h_bookmarki;                          //vector that stores the endpoint of each particle bin (ions)
 
   // device variables definition
   double *d_qi, *d_qe, *d_mi, *d_me, *d_kti, *d_kte;  //properties of particles (charge, mass and temperature of particle species)
@@ -58,9 +60,10 @@ int main (int argc, const char* argv[])
   double *d_rho, *d_phi, *d_Ex, *d_Ey;                //properties of mesh (charge density, potential and fields at point of the mesh)
   double *d_t, *d_dt;                                 //timing variables (simulation time and time step)
   particle *d_e, *d_i;                                //vector of electron and ions
+  unsigned int *d_bookmarke;                          //vector that stores the endpoint of each particle bin (electrons)
+  unsigned int *d_bookmarki;                          //vector that stores the endpoint of each particle bin (ions)
 
-
-  initialize (&h_qi, &h_qe, &h_mi, &h_me, &h_kti, &h_kte, &h_phi_p, &h_n, &h_Lx, &h_Ly, &h_dx, &h_dy, &h_dz, &h_t, &h_dt, &h_epsilon, &h_rho, &h_phi, &h_Ex, &h_Ey, &h_e, &h_i, &d_qi, &d_qe, &d_mi, &d_me, &d_kti, &d_kte, &d_phi_p, &d_n, &d_Lx, &d_Ly, &d_dx, &d_dy, &d_dz, &d_t, &d_dt, &d_epsilon, &d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i);
+  initialize (&h_qi, &h_qe, &h_mi, &h_me, &h_kti, &h_kte, &h_phi_p, &h_n, &h_Lx, &h_Ly, &h_dx, &h_dy, &h_dz, &h_t, &h_dt, &h_epsilon, &h_rho, &h_phi, &h_Ex, &h_Ey, &h_e, &h_i, &h_bookmarke, &h_bookmarki, &d_qi, &d_qe, &d_mi, &d_me, &d_kti, &d_kte, &d_phi_p, &d_n, &d_Lx, &d_Ly, &d_dx, &d_dy, &d_dz, &d_t, &d_dt, &d_epsilon, &d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_bookmarke, &d_bookmarki);
 
   return 0;
 }
@@ -148,14 +151,19 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   // read input file
   read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
   
-  // calculate initial number of particles
-  N = (**h_Lx)*(**h_Ly)*(**h_dz)*(**h_n);
+  // calculate initial number of particles and number of mesh points
+  N = (**h_Lx)*(**h_dy)*(**h_dz)*(**h_n);
   ncx = (**h_Lx)/(**h_dx)+1;
   ncy = (**h_Ly)/(**h_dy)+1;
+  N *= ncy;
   
   // allocate host memory for particle vectors
   *h_i = (particle*) malloc(N*sizeof(particle));
   *h_e = (particle*) malloc(N*sizeof(particle));
+  
+  // allocate host memory for bookmark vectors
+  *h_bookmarke =  malloc((ncy-1)*sizeof(unsigned int));
+  *h_bookmarki =  malloc((ncy-1)*sizeof(unsigned int));
   
   // allocate host memory for mesh variables
   *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
@@ -167,27 +175,36 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMalloc (d_i, N*sizeof(particle));
   cudaMalloc (d_e, N*sizeof(particle));
   
+  // allocate device memory for bookmark vectors
+  cudaMalloc (d_bookmarke, (ncy-1)*sizeof(unsigned int));
+  cudaMalloc (d_bookmarki, (ncy-1)*sizeof(unsigned int));
+  
   // allocate device memory for mesh variables
   cudaMalloc (d_rho, ncx*ncy*sizeof(double));
   cudaMalloc (d_phi, ncx*ncy*sizeof(double));
   cudaMalloc (d_Ex, ncx*ncy*sizeof(double));
   cudaMalloc (d_Ey, ncx*ncy*sizeof(double));
   
-  // initialize particle vectors (host memory)
-  for (int i = 0; i < N; i++) 
+  // initialize particle vectors and bookmarks (host memory)
+  for (int i = 0; i < ncy-1; i++) 
   {
-    // initialize ions
-    (*h_i)[i].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-    (*h_i)[i].y = gsl_rng_uniform_pos(rng)*(**h_Lx);
-    (*h_i)[i].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
-    (*h_i)[i].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
-    
-    // initialize electrons
-    (*h_e)[i].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-    (*h_e)[i].y = gsl_rng_uniform_pos(rng)*(**h_Lx);
-    (*h_e)[i].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
-    (*h_e)[i].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
-  }  
+    (*h_bookmarke)[i] = (i+1)*N/(ncy-1);
+    (*h_bookmarki)[i] = (i+1)*N/(ncy-1);
+    for (int j = 0; j < N/(ncy-1); j++) 
+    {
+      // initialize ions
+      (*h_i)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+      (*h_i)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
+      (*h_i)[i*N/(ncy-1)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+      (*h_i)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+      
+      // initialize electrons
+      (*h_e)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+      (*h_e)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
+      (*h_e)[i*N/(ncy-1)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+      (*h_e)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+    }
+  }
   
   //initialize mesh variables (host memory)
   for (int im = 0; im < ncx; im++)
@@ -235,9 +252,11 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMemcpy (*d_t, *h_t, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_dt, *h_dt, sizeof(double), cudaMemcpyHostToDevice);
   
-  // copy particle vectors from host to device memory
+  // copy particle and bookmark vectors from host to device memory
   cudaMemcpy (*d_i, *h_i, N*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e, *h_e, N*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_bookmarki, *h_bookmarki, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_bookmarke, *h_bookmarke, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
   
   return;
 }
@@ -308,7 +327,58 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
 
 /**********************************************************/
 
+// fast particle-to-grid interpolation (based on the article by George Stantchev, William Dorland and Nail Gumerov)
 
+void fast_particle_to_grid_interpolation ()
+{
+  // function variables
+  
+  // function body
+//   particle_bining();
+//   particle_to_cell_density_deposition();
+//   cell_to_vertex_density_accumulation();
+  
+  return;
+}
 
 /**********************************************************/
 
+void particle_bining()
+{
+  // function variables
+  
+  // function body
+//   particle_defragmentation();
+//   particle_rebracketing();
+  
+  return;
+}
+
+/**********************************************************/
+
+void particle_defragmentation() 
+{
+  // function variables
+  
+  // function body
+  
+  
+  return;
+}
+
+/**********************************************************/
+
+void particle_rebracketing() 
+{
+  // function varibales
+  
+  // functiona body
+  
+  
+  return;
+}
+
+
+
+
+/**********************************************************/
