@@ -31,7 +31,7 @@ struct particle
 
 /****************************** FUNCTION PROTOTIPES ******************************/
 
-void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i);
+void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, unsigned int **h_bookmarke, unsigned int **h_bookmarki, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_bookmarke, unsigned int **d_bookmarki);
 
 void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte, double *h_phi_p, double *h_n, double *h_Lx, double *h_Ly, double *h_dx, double *h_dy, double *h_dz, double *h_t, double *h_dt, double *h_epsilon);
 
@@ -70,16 +70,16 @@ int main (int argc, const char* argv[])
 
 /****************************** FUNCTION DEFINITION ******************************/
 
-void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i)
+void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, unsigned int **h_bookmarke, unsigned int **h_bookmarki, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_bookmarke, unsigned int **d_bookmarki)
 {
   // function variables
   int N;                                          //initial number of particle of each species
   int ncx, ncy;                                   //number of grid points in each dimension
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); //default random number generator (gsl)
-  
+
   // initialize enviromental variables for gsl random number generator
   gsl_rng_env_setup();
-  
+
   // allocate host memory for particle properties
   *h_qi = (double*) malloc(sizeof(double));
   *h_qe = (double*) malloc(sizeof(double));
@@ -87,33 +87,33 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   *h_me = (double*) malloc(sizeof(double));
   *h_kti = (double*) malloc(sizeof(double));
   *h_kte = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for plasma properties
   *h_n = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for probe properties
   *h_phi_p = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for geometrical properties of simulation
   *h_Lx = (double*) malloc(sizeof(double));
   *h_Ly = (double*) malloc(sizeof(double));
   *h_dx = (double*) malloc(sizeof(double));
   *h_dy = (double*) malloc(sizeof(double));
   *h_dz = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for electromagnetic properties
   *h_epsilon = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for mesh properties
   *h_rho = (double*) malloc(sizeof(double));
   *h_phi = (double*) malloc(sizeof(double));
   *h_Ex = (double*) malloc(sizeof(double));
   *h_Ey = (double*) malloc(sizeof(double));
-  
+
   // allocate host memory for timing variables
   *h_t = (double*) malloc(sizeof(double));
   *h_dt = (double*) malloc(sizeof(double));
-  
+
   // allocate device memory for particle properties
   cudaMalloc (d_qi, sizeof(double));
   cudaMalloc (d_qe, sizeof(double));
@@ -121,83 +121,83 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMalloc (d_me, sizeof(double));
   cudaMalloc (d_kti, sizeof(double));
   cudaMalloc (d_kte, sizeof(double));
-  
+
   // allocate device memory for plasma properties
   cudaMalloc (d_n, sizeof(double));
-  
+
   // allocate device memory for probe properties
   cudaMalloc (d_phi_p, sizeof(double));
-  
+
   // allocate device memory for geometrical properties of simulation
   cudaMalloc (d_Lx, sizeof(double));
   cudaMalloc (d_Ly, sizeof(double));
   cudaMalloc (d_dx, sizeof(double));
   cudaMalloc (d_dy, sizeof(double));
   cudaMalloc (d_dz, sizeof(double));
-  
+
   // allocate device memory for electromagnetic properties
   cudaMalloc (d_epsilon, sizeof(double));
-  
+
   // allocate device memory for mesh properties
   cudaMalloc (d_rho, sizeof(double));
   cudaMalloc (d_phi, sizeof(double));
   cudaMalloc (d_Ex, sizeof(double));
   cudaMalloc (d_Ey, sizeof(double));
-  
+
   // allocate device memory for timing variables
   cudaMalloc (d_t, sizeof(double));
   cudaMalloc (d_dt, sizeof(double));
 
   // read input file
   read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
-  
+
   // calculate initial number of particles and number of mesh points
   N = (**h_Lx)*(**h_dy)*(**h_dz)*(**h_n);
   ncx = (**h_Lx)/(**h_dx)+1;
   ncy = (**h_Ly)/(**h_dy)+1;
   N *= ncy;
-  
+
   // allocate host memory for particle vectors
   *h_i = (particle*) malloc(N*sizeof(particle));
   *h_e = (particle*) malloc(N*sizeof(particle));
-  
+
   // allocate host memory for bookmark vectors
   *h_bookmarke =  malloc((ncy-1)*sizeof(unsigned int));
   *h_bookmarki =  malloc((ncy-1)*sizeof(unsigned int));
-  
+
   // allocate host memory for mesh variables
   *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
   *h_phi = (double*) malloc(ncx*ncy*sizeof(double));
   *h_Ex = (double*) malloc(ncx*ncy*sizeof(double));
   *h_Ey = (double*) malloc(ncx*ncy*sizeof(double));
-  
+
   // allocate device memory for particle vectors
   cudaMalloc (d_i, N*sizeof(particle));
   cudaMalloc (d_e, N*sizeof(particle));
-  
+
   // allocate device memory for bookmark vectors
   cudaMalloc (d_bookmarke, (ncy-1)*sizeof(unsigned int));
   cudaMalloc (d_bookmarki, (ncy-1)*sizeof(unsigned int));
-  
+
   // allocate device memory for mesh variables
   cudaMalloc (d_rho, ncx*ncy*sizeof(double));
   cudaMalloc (d_phi, ncx*ncy*sizeof(double));
   cudaMalloc (d_Ex, ncx*ncy*sizeof(double));
   cudaMalloc (d_Ey, ncx*ncy*sizeof(double));
-  
+
   // initialize particle vectors and bookmarks (host memory)
-  for (int i = 0; i < ncy-1; i++) 
+  for (int i = 0; i < ncy-1; i++)
   {
     (*h_bookmarke)[i] = (i+1)*N/(ncy-1);
     (*h_bookmarki)[i] = (i+1)*N/(ncy-1);
-    for (int j = 0; j < N/(ncy-1); j++) 
+    for (int j = 0; j < N/(ncy-1); j++)
     {
       // initialize ions
       (*h_i)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
       (*h_i)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
       (*h_i)[i*N/(ncy-1)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
       (*h_i)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
-      
+
       // initialize electrons
       (*h_e)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
       (*h_e)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
@@ -205,7 +205,7 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
       (*h_e)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
     }
   }
-  
+
   //initialize mesh variables (host memory)
   for (int im = 0; im < ncx; im++)
   {
@@ -217,7 +217,7 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
       (*h_phi)[im+jm*(ncx)] = (1.0 - double(jm)/double(ncy-1))*(**h_phi_p);
     }
   }
-  
+
   // copy particle properties from host to device memory
   cudaMemcpy (*d_qi, *h_qi, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_qe, *h_qe, sizeof(double), cudaMemcpyHostToDevice);
@@ -231,7 +231,7 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
 
   // copy probe properties from host to device memory
   cudaMemcpy (*d_phi_p, *h_phi_p, sizeof(double), cudaMemcpyHostToDevice);
-  
+
   // copy geometrical properties from host to device memory
   cudaMemcpy (*d_Lx, *h_Lx, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_Ly, *h_Ly, sizeof(double), cudaMemcpyHostToDevice);
@@ -241,23 +241,23 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
 
   // copy electromagnetic properties from host to device memory
   cudaMemcpy (*d_epsilon, *h_epsilon, sizeof(double), cudaMemcpyHostToDevice);
-  
+
   // copy mesh properties from host to device memory
   cudaMemcpy (*d_rho, *h_rho, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_phi, *h_phi, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_Ex, *h_Ex, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_Ey, *h_Ey, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
-  
+
   // copy timing variables from host to device memory
   cudaMemcpy (*d_t, *h_t, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_dt, *h_dt, sizeof(double), cudaMemcpyHostToDevice);
-  
+
   // copy particle and bookmark vectors from host to device memory
   cudaMemcpy (*d_i, *h_i, N*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e, *h_e, N*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_bookmarki, *h_bookmarki, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_bookmarke, *h_bookmarke, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  
+
   return;
 }
 
@@ -332,12 +332,12 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
 void fast_particle_to_grid_interpolation ()
 {
   // function variables
-  
+
   // function body
 //   particle_bining();
 //   particle_to_cell_density_deposition();
 //   cell_to_vertex_density_accumulation();
-  
+
   return;
 }
 
@@ -346,56 +346,58 @@ void fast_particle_to_grid_interpolation ()
 void particle_bining()
 {
   // function variables
-  
+
   // function body
 //   particle_defragmentation();
 //   particle_rebracketing();
-  
+
   return;
 }
 
 /**********************************************************/
 
-void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p) 
+void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
   // kernel shared memory
   __shared__ particle p_sha[blockDim.x];
-  __shared__ int bin = blockIdx.x;
+  __shared__ int bin;
   __shared__ int bin_bookmark[2];
   __shared__ int tail, i, i_shifted;
   // kernel registers
   int new_bin, swap_index;
   particle p_reg, p_dummy;
-  
+
   /*--------------------------- kernel body ----------------------------*/
-  
+
   //---- initialize shared memory
-  
+
+  // initialize bin variable (the same as blockIdx.x)
+  if (threadIdx.x == 0) bin = blockIdx.x;
+
   // load bin bookmarks
   if (threadIdx.x < 2)
   {
     bin_bookmark[threadIdx.x] = bookmark[bin*2+threadIdx.x];
   }
-  
-  // initialize batches and tail parameters for "-" defrag algorithm (and bin variable for whole kernel)
+
+  // initialize batches and tail parameters for "-" defrag algorithm
   if (threadIdx.x == 0)
   {
-    bin = blockDim.x;
     i = bin_bookmark[0];
     i_shifted = i + blockDim.x;
     tail = 0;
   }
   __syncthreads();
-  
+
   //---- cleaning first batch of particles
-  
+
   // reading from global memory
   p_sha[threadIdx.x] = p[i_shifted+threadIdx.x];
   __syncthreads();
   p_reg = p[i+threadIdx.x];
-  
+
   // obtaining valid swap_index for each "-" particle in first batch
   new_bin = p_reg.y/dy;
   if (new_bin<bin)
@@ -410,32 +412,32 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     p_sha[swap_index] = p_dummy;
   }
   __syncthreads();
-  
+
   // write back particle batches to global memory
-  p[i+threadIdx.x] = p_reg;                       
+  p[i+threadIdx.x] = p_reg;
   __syncthreads();
   p[i_shifted+threadIdx.x] = p_sha[threadIdx.x];
-  
+
   // reset tail parameter (shared memory)
   if (threadIdx.x == 0)
   {
     tail = 0;
   }
   __syncthreads();
-  
+
   //---- start of "-" defrag algorithm
-  
+
   while (i_shifted<=bin_bookmark[1])
   {
     // copy exchange queue from global memory to shared memory
     p_sha[threadIdx.x] = p[i+threadIdx.x];
     __syncthreads();
-    
+
     if (i_shifted+threadIdx.x<=bin_bookmark[1])
     {
       // copy batch of particles to be analyzed from global memory to registers
       p_reg = p[i_shifted+threadIdx.x];
-     
+
       // analyze batch of particle in registers
       new_bin = p_reg.y/dy;
       if (new_bin<bin)
@@ -448,16 +450,16 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
       }
     }
     __syncthreads();
-    
+
     // write back particle batches to global memory
     if (i_shifted+threadIdx.x<=bin_bookmark[1])
     {
-      p[i_shifted+threadIdx.x] = p_reg;                       
+      p[i_shifted+threadIdx.x] = p_reg;
     }
     __syncthreads();
     p[i+threadIdx.x] = p_sha[threadIdx.x];
     __syncthreads();
-    
+
     // actualize parameters in shared memory
     if (threadIdx.x == 0)
     {
@@ -468,7 +470,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
       tail = 0;
     }
   }
-  
+
   // actualize bin_bookmark to the new "bin_start" value
   if (threadIdx.x == 0)
   {
@@ -485,14 +487,14 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     tail = 0;
   }
   __syncthreads();
- 
+
   //---- cleaning last batch of particles
-  
+
   // reading from global memory
   p_sha[threadIdx.x] = p[i_shifted-threadIdx.x];
   __syncthreads();
   p_reg = p[i-threadIdx.x];
-  
+
   // obtaining valid swap_index for each "+" particle in last batch
   new_bin = p_reg.y/dy;
   if (new_bin>bin)
@@ -507,32 +509,32 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     p_sha[swap_index] = p_dummy;
   }
   __syncthreads();
-  
+
   // write back particle batches to global memory
-  p[i-threadIdx.x] = p_reg;                       
+  p[i-threadIdx.x] = p_reg;
   __syncthreads();
   p[i_shifted-threadIdx.x] = p_sha[threadIdx.x];
   __syncthreads();
-  
+
   // reset tail parameter (shared memory)
   if (threadIdx.x ==0)
   {
     tail = 0;
   }
-  
+
   //---- start of "+" defrag algorithm
-  
+
   while (i_shifted>=bin_bookmark[0])
   {
     // copy exchange queue from global memory to shared memory
     p_sha[threadIdx.x] = p[i-threadIdx.x];
     __syncthreads();
-    
+
     if (i_shifted-threadIdx.x>=bin_bookmark[0])
     {
       // copy batch of particles to be analyzed from global memory to registers
       p_reg = p[i_shifted-threadIdx.x];
-     
+
       // analyze batch of particle in registers
       new_bin = p_reg.y/dy;
       if (new_bin>bin)
@@ -545,16 +547,16 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
       }
     }
     __syncthreads();
-    
+
     // write back particle batches to global memory
     if (i_shifted-threadIdx.x>=bin_bookmark[0])
     {
-      p[i_shifted-threadIdx.x] = p_reg;                       
+      p[i_shifted-threadIdx.x] = p_reg;
     }
     __syncthreads();
     p[i-threadIdx.x] = p_sha[threadIdx.x];
     __syncthreads();
-    
+
     // actualize parameters in shared memory
     if (threadIdx.x == 0)
     {
@@ -565,16 +567,16 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
       tail = 0;
     }
   }
-  
+
   // actualize bin_bookmark to the new "bin_end" value
   if (threadIdx.x == 0)
   {
     bin_bookmark[1] = i;
   }
   __syncthreads();
-  
+
   //---- store actualized bookmarks in new bin bookmarks variable in global memory
-  
+
   if (threadIdx.x < 2)
   {
     new_bookmark[bin*2+threadIdx.x] = bin_bookmark[threadIdx.x];
@@ -585,10 +587,10 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
 
 /**********************************************************/
 
-void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p) 
+void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
-  
+
   // kernel shared memory
   __shared__ int sh_old_bookmark[2];  // bookmarks before defragmentation (also used to store bookmarks after rebracketing) (bin_end, bin_start)
   __shared__ int sh_new_bookmark[2];  // bookmarks after particle defragmentation (bin_end, bin_start)
@@ -597,12 +599,12 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
   // kernel registers
   particle p_dummy;                   // dummy particle for swapping
   int stride = 1+threadIdx.x;         // offset stride thath of each thread to swap the correct particle
-  
-  
+
+
   /*--------------------------- kernel body ----------------------------*/
-  
+
   //---- initialize shared memory
-  
+
   // load old and new bookmarks from global memory
   if (threadIdx.x < 2)
   {
@@ -610,7 +612,7 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     sh_new_bookmark[threadIdx.x] = new_bookmark[1+blockIdx.x*2+threadIdx.x];
   }
   __syncthreads();
-  
+
   // set tpb variable and evaluate number of swaps needed for each bin frontier
   if (threadIdx.x == 0)
   {
@@ -618,9 +620,9 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     nswaps = ( (sh_old_bookmark[0]-sh_new_bookmark[0])<(sh_new_bookmark[1]-sh_old_bookmark[1]) ) ? (sh_old_bookmark[0]-sh_new_bookmark[0]) : (sh_new_bookmark[1]-sh_old_bookmark[1]);
   }
   __syncthreads();
-  
+
   //---- if number of swaps needed is greater than the number of threads per block:
-  
+
   while (nswaps >= tpb)
   {
     // swapping of tpb particles
@@ -628,7 +630,7 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     p[sh_new_bookmark[0]+stride] = p[sh_new_bookmark[1]-stride];
     p[sh_new_bookmark[1]-stride] = p_dummy;
     __syncthreads();
-    
+
     // actualize shared new bookmarks
     if (threadIdx.x == 0)
     {
@@ -638,9 +640,9 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     }
     __syncthreads();
   }
-  
+
   //---- if number of swaps needed is lesser than the number of threads per block:
-  
+
   if (nswaps>0)
   {
     // swapping nswaps particles (all swaps needed)
@@ -652,7 +654,7 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     }
     __syncthreads();
   }
-  
+
   //actualize shared new bookmarks
   if (threadIdx.x == 0)
   {
@@ -667,7 +669,7 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     }
   }
   __syncthreads();
-  
+
   return;
 }
 
