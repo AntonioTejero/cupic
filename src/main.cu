@@ -358,7 +358,7 @@ void particle_bining()
 
 void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p) 
 {
-  /*--------------------------- kernell variables -----------------------*/
+  /*--------------------------- kernel variables -----------------------*/
 
   // kernel shared memory
   __shared__ particle p_sha[blockDim.x];
@@ -369,23 +369,25 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
   int new_bin, swap_index;
   particle p_reg, p_dummy;
   
-  /*--------------------------- kernell body ----------------------------*/
+  /*--------------------------- kernel body ----------------------------*/
   
-  //---- load bin bookmarks
+  //---- initialize shared memory
   
+  // load bin bookmarks
   if (threadIdx.x < 2)
   {
     bin_bookmark[threadIdx.x] = bookmark[bin*2+threadIdx.x];
   }
   
-  //---- initialize batches and tail parameters for "-" defrag algorithm
-  
+  // initialize batches and tail parameters for "-" defrag algorithm (and bin variable for whole kernel)
   if (threadIdx.x == 0)
   {
+    bin = blockDim.x;
     i = bin_bookmark[0];
     i_shifted = i + blockDim.x;
     tail = 0;
   }
+  __syncthreads();
   
   //---- cleaning first batch of particles
   
@@ -405,7 +407,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     // swapping "-" particles from first batch with "non -" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
-    p_sha[swap_index] = dummy;
+    p_sha[swap_index] = p_dummy;
   }
   __syncthreads();
   
@@ -413,13 +415,13 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
   p[i+threadIdx.x] = p_reg;                       
   __syncthreads();
   p[i_shifted+threadIdx.x] = p_sha[threadIdx.x];
-  __syncthreads();
   
   // reset tail parameter (shared memory)
   if (threadIdx.x == 0)
   {
     tail = 0;
   }
+  __syncthreads();
   
   //---- start of "-" defrag algorithm
   
@@ -442,10 +444,10 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
         swap_index = atomicAdd(&tail, 1);
         p_dummy = p_reg;
         p_reg = p_sha[swap_index];
-        p_sha[swap_index] = dummy;
+        p_sha[swap_index] = p_dummy;
       }
     }
-    __syncthreads()
+    __syncthreads();
     
     // write back particle batches to global memory
     if (i_shifted+threadIdx.x<=bin_bookmark[1])
@@ -467,15 +469,14 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     }
   }
   
-  //---- actualize bin_bookmark to the new "bin_start" value
-  
+  // actualize bin_bookmark to the new "bin_start" value
   if (threadIdx.x == 0)
   {
     bin_bookmark[0] = i;
   }
-  
+  __syncthreads();
 
-  //---- initialize batches, and tail parameters for "+" defrag algorithm
+  //---- reset shared memory variables for "+" defrag algorithm
 
   i = bin_bookmark[1];
   i_shifted = i - blockDim.x;
@@ -483,6 +484,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
   {
     tail = 0;
   }
+  __syncthreads();
  
   //---- cleaning last batch of particles
   
@@ -502,7 +504,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     // swapping "+" particles from first batch with "non +" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
-    p_sha[swap_index] = dummy;
+    p_sha[swap_index] = p_dummy;
   }
   __syncthreads();
   
@@ -539,10 +541,10 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
         swap_index = atomicAdd(&tail, 1);
         p_dummy = p_reg;
         p_reg = p_sha[swap_index];
-        p_sha[swap_index] = dummy;
+        p_sha[swap_index] = p_dummy;
       }
     }
-    __syncthreads()
+    __syncthreads();
     
     // write back particle batches to global memory
     if (i_shifted-threadIdx.x>=bin_bookmark[0])
@@ -564,8 +566,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     }
   }
   
-  //---- actualize bin_bookmark to the new "bin_end" value
-  
+  // actualize bin_bookmark to the new "bin_end" value
   if (threadIdx.x == 0)
   {
     bin_bookmark[1] = i;
@@ -586,23 +587,23 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
 
 void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p) 
 {
-  /*--------------------------- kernell variables -----------------------*/
+  /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-//   __shared__ int sh_new_bookmark[1];      // bin_end, bin_start, new_bin_end, new_bin_start
   __shared__ int sh_old_bookmark[2];  // bookmarks before defragmentation (also used to store bookmarks after rebracketing) (bin_end, bin_start)
   __shared__ int sh_new_bookmark[2];  // bookmarks after particle defragmentation (bin_end, bin_start)
   __shared__ int nswaps;              // number of swaps each bin frontier needs
-  __shared__ int tpb = blockDim.x;    // threads per block
+  __shared__ int tpb;                 // threads per block
   // kernel registers
   particle p_dummy;                   // dummy particle for swapping
   int stride = 1+threadIdx.x;         // offset stride thath of each thread to swap the correct particle
   
   
-  /*--------------------------- kernell body ----------------------------*/
+  /*--------------------------- kernel body ----------------------------*/
   
-  //---- load old and new bookmarks and evaluate number of swaps needed
+  //---- initialize shared memory
   
+  // load old and new bookmarks from global memory
   if (threadIdx.x < 2)
   {
     sh_old_bookmark[threadIdx.x] = old_bookmark[1+blockIdx.x*2+threadIdx.x];
@@ -610,8 +611,10 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
   }
   __syncthreads();
   
+  // set tpb variable and evaluate number of swaps needed for each bin frontier
   if (threadIdx.x == 0)
   {
+    tpb = blockDim.x;
     nswaps = ( (sh_old_bookmark[0]-sh_new_bookmark[0])<(sh_new_bookmark[1]-sh_old_bookmark[1]) ) ? (sh_old_bookmark[0]-sh_new_bookmark[0]) : (sh_new_bookmark[1]-sh_old_bookmark[1]);
   }
   __syncthreads();
@@ -667,8 +670,6 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
   
   return;
 }
-
-
 
 
 /**********************************************************/
