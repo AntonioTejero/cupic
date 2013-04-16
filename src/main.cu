@@ -19,7 +19,8 @@
 
 using namespace std;
 
-#define PI 3.1415926535897932		//symbolic constant for PI
+#define PI 3.1415926535897932   //symbolic constant for PI
+#define BINING_BLOCK_DIM 1024   //block dimension for defragmentation kernel
 
 struct particle
 {
@@ -35,6 +36,9 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
 
 void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte, double *h_phi_p, double *h_n, double *h_Lx, double *h_Ly, double *h_dx, double *h_dy, double *h_dz, double *h_t, double *h_dt, double *h_epsilon);
 
+// kernels
+__global__ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p);
+__global__ void particle_rebracketing(int offset, int *bookmark, int *new_bookmark, particle *p);
 /****************************** MAIN FUNCTION ******************************/
 
 int main (int argc, const char* argv[])
@@ -162,8 +166,8 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   *h_e = (particle*) malloc(N*sizeof(particle));
 
   // allocate host memory for bookmark vectors
-  *h_bookmarke =  malloc((ncy-1)*sizeof(unsigned int));
-  *h_bookmarki =  malloc((ncy-1)*sizeof(unsigned int));
+  *h_bookmarke = (unsigned int*) malloc((ncy-1)*sizeof(unsigned int));
+  *h_bookmarki = (unsigned int*) malloc((ncy-1)*sizeof(unsigned int));
 
   // allocate host memory for mesh variables
   *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
@@ -329,7 +333,7 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
 
 // fast particle-to-grid interpolation (based on the article by George Stantchev, William Dorland and Nail Gumerov)
 
-void fast_particle_to_grid_interpolation ()
+void fast_particle_to_grid_interpolation (double dy, int ncy, int *bookmark, particle *p)
 {
   // function variables
 
@@ -343,25 +347,37 @@ void fast_particle_to_grid_interpolation ()
 
 /**********************************************************/
 
-void particle_bining()
+void particle_bining(double dy, int ncy, int *bookmark, particle **p)
 {
   // function variables
-
+  int new_bookmark[2*ncy];
+  dim3 griddim, blockdim;
+  
   // function body
-//   particle_defragmentation();
-//   particle_rebracketing();
+  
+  // set dimensions of grid of threads for particle defragmentation
+  griddim = ncy;
+  blockdim = BINING_BLOCK_DIM;
+  // execute kernel for defragmentation of particles
+  particle_defragmentation<<<griddim, blockdim>>>(bookmark, new_bookmark, dy, *p);
+  
+  // set dimensions of grid of threads for particle rebracketing
+  griddim = ncy-1;
+  
+  // execute kernel for rebracketing of particles
+  particle_rebracketing<<<griddim, blockdim>>>(new_bookmark[0], bookmark, new_bookmark, *p);
 
   return;
 }
 
 /**********************************************************/
 
-void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p)
+__global__ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
   // kernel shared memory
-  __shared__ particle p_sha[blockDim.x];
+  __shared__ particle p_sha[BINING_BLOCK_DIM];
   __shared__ int bin;
   __shared__ int bin_bookmark[2];
   __shared__ int tail, i, i_shifted;
@@ -405,7 +421,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/dy)>=bin);
+    } while (int(p_sha[swap_index].y/dy)<bin);
     // swapping "-" particles from first batch with "non -" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -480,10 +496,10 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
 
   //---- reset shared memory variables for "+" defrag algorithm
 
-  i = bin_bookmark[1];
-  i_shifted = i - blockDim.x;
   if (threadIdx.x == 0)
   {
+    i = bin_bookmark[1];
+    i_shifted = i - blockDim.x;
     tail = 0;
   }
   __syncthreads();
@@ -502,7 +518,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/dy)<=bin);
+    } while (int(p_sha[swap_index].y/dy)>bin);
     // swapping "+" particles from first batch with "non +" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -587,7 +603,7 @@ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, parti
 
 /**********************************************************/
 
-void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
+__global__ void particle_rebracketing(int offset, int *bookmark, int *new_bookmark, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
@@ -608,7 +624,7 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
   // load old and new bookmarks from global memory
   if (threadIdx.x < 2)
   {
-    sh_old_bookmark[threadIdx.x] = old_bookmark[1+blockIdx.x*2+threadIdx.x];
+    sh_old_bookmark[threadIdx.x] = bookmark[1+blockIdx.x*2+threadIdx.x];
     sh_new_bookmark[threadIdx.x] = new_bookmark[1+blockIdx.x*2+threadIdx.x];
   }
   __syncthreads();
@@ -654,7 +670,9 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     }
     __syncthreads();
   }
-
+  
+  //---- evaluate new bookmarks and store in global memory
+  
   //actualize shared new bookmarks
   if (threadIdx.x == 0)
   {
@@ -669,9 +687,15 @@ void particle_rebracketing(int *old_bookmark, int *new_bookmark, particle *p)
     }
   }
   __syncthreads();
+  
+  // store new bookmarks in global memory
+  if (threadIdx.x < 2)
+  {
+    bookmark[1+blockIdx.x*2+threadIdx.x] = sh_new_bookmark[threadIdx.x]-offset;
+  }
+  __syncthreads();
 
   return;
 }
-
 
 /**********************************************************/
