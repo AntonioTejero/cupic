@@ -98,15 +98,15 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   N = (**h_Lx)*(**h_dy)*(**h_dz)*(**h_n);
   ncx = (**h_Lx)/(**h_dx)+1;
   ncy = (**h_Ly)/(**h_dy)+1;
-  N *= ncy;
+  N *= ncy-1;
 
   // allocate host memory for particle vectors
   *h_i = (particle*) malloc(N*sizeof(particle));
   *h_e = (particle*) malloc(N*sizeof(particle));
 
   // allocate host memory for bookmark vectors
-  *h_bookmarke = (unsigned int*) malloc((ncy-1)*sizeof(unsigned int));
-  *h_bookmarki = (unsigned int*) malloc((ncy-1)*sizeof(unsigned int));
+  *h_bookmarke = (unsigned int*) malloc(2*(ncy-1)*sizeof(unsigned int));
+  *h_bookmarki = (unsigned int*) malloc(2*(ncy-1)*sizeof(unsigned int));
 
   // allocate host memory for mesh variables
   *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
@@ -119,8 +119,8 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMalloc (d_e, N*sizeof(particle));
 
   // allocate device memory for bookmark vectors
-  cudaMalloc (d_bookmarke, (ncy-1)*sizeof(unsigned int));
-  cudaMalloc (d_bookmarki, (ncy-1)*sizeof(unsigned int));
+  cudaMalloc (d_bookmarke, 2*(ncy-1)*sizeof(unsigned int));
+  cudaMalloc (d_bookmarki, 2*(ncy-1)*sizeof(unsigned int));
 
   // allocate device memory for mesh variables
   cudaMalloc (d_rho, ncx*ncy*sizeof(double));
@@ -131,8 +131,10 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy-1; i++)
   {
-    (*h_bookmarke)[i] = (i+1)*N/(ncy-1);
-    (*h_bookmarki)[i] = (i+1)*N/(ncy-1);
+    (*h_bookmarke)[2*i] = i*N/(ncy-1);
+    (*h_bookmarke)[2*i+1] = (i+1)*N/(ncy-1)-1;
+    (*h_bookmarki)[2*i] = i*N/(ncy-1);
+    (*h_bookmarki)[2*i+1] = (i+1)*N/(ncy-1)-1;
     for (int j = 0; j < N/(ncy-1); j++)
     {
       // initialize ions
@@ -198,8 +200,8 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   // copy particle and bookmark vectors from host to device memory
   cudaMemcpy (*d_i, *h_i, N*sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e, *h_e, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_bookmarki, *h_bookmarki, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_bookmarke, *h_bookmarke, (ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_bookmarki, *h_bookmarki, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_bookmarke, *h_bookmarke, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
   return;
 }
