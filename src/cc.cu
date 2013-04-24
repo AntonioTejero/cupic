@@ -14,20 +14,107 @@
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
-void particle_bining(double dy, int ncy, int *bookmark, int *new_bookmark, particle **p)
+void cc (double t, double dt, double Lx, double dy, int ncx, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i)
+{
+  /*--------------------------- function variables -----------------------*/
+
+  // host memory
+  static double delta_e = 1.0e-1;     //time between electron insertions sqrt(2.0*PI*m_e/kT_e)/(n*Lx*dz)
+  static double delta_i = 1.0e0;      //time between ion insertions
+  static double lt_e = 0.0;           //last time an electron where introduced
+  static double lt_i = 0.0;           //last time an ion where introduced
+  int in_e, in_i;                     //number of electron and ions added at plasma frontier
+  int out_e, out_i;                   //number of electrons and ions a at plasma frontier
+  int n_e, n_i;                       //number of electrons and ions after cc
+  
+  static unsigned int h_e_bookmark[ncy-1], h_i_bookmark[ncy-1];           //old particle bookmarks
+  static unsigned int h_e_new_bookmark[ncy-1], h_i_new_bookmark[ncy-1];   //new particle bookmarks
+  
+  // device memory
+  int *d_e_new_bookmark, *d_i_new_bookmark;   //new particle bookmarks (have to be allocated in device memory)
+  particle *dummy_p;                          //dummy vector for particle storage
+
+  /*----------------------------- function body -------------------------*/
+
+  //---- sorting and cyclic contour conditions
+  
+  // calculate number of electrons and ions that flow into/out to the simulation
+  in_e = (t+dt-lt_e)/delta_e;
+  in_i = (t+dt-lt_i)/delta_i;
+  
+  // allocate device memory for new particle bookmarks
+  cudaMalloc (e_new_bookmark, (ncy-1)*sizeof(unsigned int));
+  cudaMalloc (i_new_bookmark, (ncy-1)*sizeof(unsigned int));  
+  
+  // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
+  particle_bining(Lx, dy, ncy, d_e_bookmark, d_e_new_bookmark, e);
+  particle_bining(Lx, dy, ncy, d_i_bookmark, d_i_new_bookmark, i);
+  
+  // copy new bookmark to host memory
+  cudaMemcpy (h_e_bookmark, d_e_bookmark, (ncy-1)*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_bookmark, d_i_bookmark, (ncy-1)*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_new_bookmark, d_e_new_bookmark, (ncy-1)*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_new_bookmark, d_i_new_bookmark, (ncy-1)*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  
+  // calculate outflowing particles of each type
+  out_e = h_e_new_bookmark[0]-h_e_bookmark[0]+h_e_bookmark[ncy-2]-h_e_new_bookmark[ncy-1];
+  out_i = h_i_new_bookmark[0]-h_i_bookmark[0]+h_i_bookmark[ncy-2]-h_i_new_bookmark[ncy-1];
+  
+  //---- absorbent/emitter contour conditions
+  
+  // electrons
+  if (out_e != in_e) 
+  {
+    int length = h_e_new_bookmark[ncy-2]-h_e_new_bookmark[0]+1;                                       //calculate size of particle vector that remains
+    dummyp = (particle*) malloc((lenght+in_e)*sizeof(particle));                                      //allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, e+h_e_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);      //move remaining particles to dummy vector (host memory)
+    
+    // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
+    
+    cudaFree(e);                                                                                      //free old particles device memory
+    cudaMalloc(e, (lenght+in_e)*sizeof(particle));                                                    //allocate new device memory for particles
+    cudaMemcpy(e, dummy_p, lenght*sizeof(particle), cudaMemcpyHostToDevice);                          //copy new particles to device memory
+  } else
+  {
+    // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
+  }
+  
+  // ions
+  if (out_i != in_i) 
+  {
+    int length = h_i_new_bookmark[ncy-2]-h_i_new_bookmark[0]+1;                                       //calculate size of particle vector that remains
+    dummyp = (particle*) malloc((lenght+in_i)*sizeof(particle));                                      //allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, i+h_i_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);      //move remaining particles to dummy vector (host memory)
+    
+    // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
+    
+    cudaFree(i);                                                                                      //free old particles device memory
+    cudaMalloc(i, (lenght+in_i)*sizeof(particle));                                                    //allocate new device memory for particles
+    cudaMemcpy(i, dummy_p, lenght*sizeof(particle), cudaMemcpyHostToDevice);                          //copy new particles to device memory
+  } else
+  {
+    // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
+  }
+  
+  return;
+}
+
+/**********************************************************/
+
+void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- function variables -----------------------*/
 
   dim3 griddim, blockdim;
 
-  /*----------------------------- function body -------------------------*/
+  /*----------------------------- function body --------------------------*/
 
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
   blockdim = BINING_BLOCK_DIM;
 
   // execute kernel for defragmentation of particles
-  particle_defragmentation<<<griddim, blockdim>>>(bookmark, new_bookmark, dy, *p);
+  particle_defragmentation<<<griddim, blockdim>>>(Lx, dy, bookmark, new_bookmark, dy, *p);
 
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -40,7 +127,7 @@ void particle_bining(double dy, int ncy, int *bookmark, int *new_bookmark, parti
 
 /**********************************************************/
 
-__global__ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p)
+__global__ void particle_defragmentation(double Lx, double dy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
@@ -81,6 +168,15 @@ __global__ void particle_defragmentation(int *bookmark, int *new_bookmark, doubl
   p_sha[threadIdx.x] = p[i_shifted+threadIdx.x];
   __syncthreads();
   p_reg = p[i+threadIdx.x];
+  
+  // apply cyclic contour condition
+  if (p_reg.x<0)
+  {
+    p_reg.x += Lx;  
+  } else if (p_reg.x>Lx)
+  {
+    p_reg.x -= Lx;
+  }
 
   // obtaining valid swap_index for each "-" particle in first batch
   new_bin = p_reg.y/dy;
@@ -121,6 +217,15 @@ __global__ void particle_defragmentation(int *bookmark, int *new_bookmark, doubl
     {
       // copy batch of particles to be analyzed from global memory to registers
       p_reg = p[i_shifted+threadIdx.x];
+
+      // apply cyclic contour condition
+      if (p_reg.x<0)
+      {
+        p_reg.x += Lx;  
+      } else if (p_reg.x>Lx)
+      {
+        p_reg.x -= Lx;
+      } 
 
       // analyze batch of particle in registers
       new_bin = p_reg.y/dy;
@@ -271,7 +376,7 @@ __global__ void particle_defragmentation(int *bookmark, int *new_bookmark, doubl
 
 /**********************************************************/
 
-__global__ void particle_rebracketing(int *bookmark, int *new_bookmark, particle *p)
+__global__ void particle_rebracketing(unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
@@ -365,26 +470,5 @@ __global__ void particle_rebracketing(int *bookmark, int *new_bookmark, particle
 
   return;
 }
-
-/**********************************************************/
-
-// void cc_abs_inj (double t, double dt int *e_bookmark, int *e_new_bookmark, particle **e, int *i_bookmark, int * i_new_bookmark, particle **i)
-// {
-//   /*--------------------------- function variables -----------------------*/
-// 
-//   double delta_e = 1.0e-1;    //time between electron insertions
-//   double delta_i = 1.0e0;     //time between ion insertions
-//   int n_e;                    //number of electron added at plasma frontier
-//   int n_i;                    //number of ions added at plasma frontier
-// 
-//   /*----------------------------- function body -------------------------*/
-// 
-//   // calculate number of electrons and ions that flow into the simulation
-//   n_e = t
-// 
-// 
-// 
-//   return;
-// }
 
 /**********************************************************/

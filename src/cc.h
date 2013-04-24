@@ -21,12 +21,12 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void particle_bining(double dy, int ncy, int *bookmark, int *new_bookmark, particle **p);
-// void cc_abs_inj (double t, double dt int *e_bookmark, int *e_new_bookmark, particle **e, int *i_bookmark, int * i_new_bookmark, particle **i);
+void cc (double t, double dt, double Lx, double dy, int ncx, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i);
+void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
 
 
 // device kernels
-__global__ void particle_defragmentation(int *bookmark, int *new_bookmark, double dy, particle *p);
-__global__ void particle_rebracketing(int *bookmark, int *new_bookmark, particle *p);
+__global__ void particle_defragmentation(double Lx, double dy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
+__global__ void particle_rebracketing(unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
 
 #endif
