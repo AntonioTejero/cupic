@@ -21,14 +21,17 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *e, unsigned int *e_bm, particle *i, unsigned int *i_bm);
+void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
 
 // device kernels
-__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *e, unsigned int *e_bm, particle *i, unsigned int *i_bm);
+__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
 
 // device functions (overload atomic functions for double precision support)
 __device__ double atomicAdd(double* address, double val);
 __device__ double atomicSub(double* address, double val);
+
+// variable for allowing dynamic allocation of __shared__ memory (used in charge_deposition, poisson_solver, )
+extern __shared__ double sh_mem[];
 
 
 #endif

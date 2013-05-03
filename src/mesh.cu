@@ -8,36 +8,44 @@
 
 /****************************** HEADERS ******************************/
 
-#include "cc.h"
+#include "mesh.h"
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
- fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *e, unsigned int *e_bm, particle *i, unsigned int *i_bm) 
+void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm) 
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
-  
+  dim3 griddim, blockdim;
+  size_t sh_mem_size;
   
   // device memory
   
   
   /*----------------------------- function body -------------------------*/
   
-  charge_deposition(ncx, ncy, dx, dy, rho, e, e_bm, i, i_bm);
+  // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
+  griddim = ncy;
+  blockdim = CHARGE_DEP_BLOCK_DIM;
+  sh_mem_size = 2*ncx*sizeof(double)+4*sizeof(unsigned int);
+    
+  charge_deposition<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, dx, dy, rho, elec, e_bm, ions, i_bm);
   
   return;
 }
 
 /**********************************************************/
 
-__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *e, unsigned int *e_bm, particle *i, unsigned int *i_bm)
+__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  __shared__ double sh_partial_rho[2*ncx]
-  __shared__ unsigned int sh_e_bm[2], sh_i_bm[2];
+  
+  double *sh_partial_rho = (double *) sh_mem;                       //
+  unsigned int *sh_e_bm = (unsigned int *) &sh_partial_rho[2*ncx];  // manually set up shared memory variables inside whole shared memory
+  unsigned int *sh_i_bm = (unsigned int *) &sh_e_bm[2];             //
   
   // kernel registers
   particle p;
@@ -54,16 +62,16 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
   {
     if (threadIdx.x < 2*ncx)
     {
-      partial_rho[threadIdx.x] = 0.0;
+      sh_partial_rho[threadIdx.x] = 0.0;
     }
   } else
   {
     for (int i = threadIdx.x; i < 2*ncx; i+=blockDim.x)
     {
-      partial_rho[i] = 0.0;
+      sh_partial_rho[i] = 0.0;
     }
   }
-  __synctrheads();
+  __syncthreads();
   
   // load bin bookmarks from global memory
   if (threadIdx.x < 2)
@@ -71,7 +79,7 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
     sh_e_bm[threadIdx.x] = e_bm[blockIdx.x*2+threadIdx.x];
     sh_i_bm[threadIdx.x] = i_bm[blockIdx.x*2+threadIdx.x];
   }
-  __synctrheads();
+  __syncthreads();
   
   //--- deposition of charge
   
@@ -80,7 +88,7 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
   for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x)
   {
     // load electron in registers
-    p = e[i];
+    p = elec[i];
     // calculate x coordinate of the cell that the electron belongs to
     ic = int(p.x/dx);
     // calculate distances from particle to down left vertex of the cell
@@ -98,7 +106,7 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
   for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x)
   {
     // load electron in registers
-    p = i[i];
+    p = ions[i];
     // calculate x coordinate of the cell that the electron belongs to
     ic = int(p.x/dx);
     // calculate distances from particle to down left vertex of the cell
@@ -110,7 +118,7 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
     atomicAdd(sh_partial_rho+ic+ncx, (1.0-distx/dx)*(disty/dy));    //top left vertex
     atomicAdd(sh_partial_rho+ic+ncx+1, (distx/dx)*(disty/dy));      //top right vertex
   }
-  __synctrheads();
+  __syncthreads();
   
   // ccc
   
@@ -119,7 +127,7 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
     sh_partial_rho[threadIdx.x*ncx] += sh_partial_rho[(threadIdx.x+1)*ncx-1];
     sh_partial_rho[(threadIdx.x+1)*ncx-1] = sh_partial_rho[threadIdx.x*ncx];
   }
-  __synctrheads();
+  __syncthreads();
   
   //---- acumulation of charge
   
@@ -175,6 +183,24 @@ __device__ double atomicSub(double* address, double val)
   } while (assumed != old);
   
   return __longlong_as_double(old);
+}
+
+/**********************************************************/
+
+void poisson_solver(double *rho, double *phi, double phi_p) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  
+  
+  // device memory
+  
+  
+  /*----------------------------- function body -------------------------*/
+  
+  
+  return;
 }
 
 /**********************************************************/

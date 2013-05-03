@@ -12,7 +12,7 @@ phi_p = -1.0e1;
 #plasma properies
 n = 1.0e5;
 
-#geometrical properties of the simulation
+#mesh properties of the simulation
 Lx = 2.0e0;
 Ly = 5.0e0;
 dx = 5.0e-2;
