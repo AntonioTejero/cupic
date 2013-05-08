@@ -28,8 +28,10 @@ void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, 
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
   blockdim = CHARGE_DEP_BLOCK_DIM;
+  
+  // define size of shared memory for charge_deposition kernel
   sh_mem_size = 2*ncx*sizeof(double)+4*sizeof(unsigned int);
-    
+  
   charge_deposition<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, dx, dy, rho, elec, e_bm, ions, i_bm);
   
   return;
@@ -187,18 +189,140 @@ __device__ double atomicSub(double* address, double val)
 
 /**********************************************************/
 
-void poisson_solver(double *rho, double *phi, double phi_p) 
+void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilon0, double *rho, double *phi) 
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
-  
+  dim3 blockdim, griddim;
+  double *h_block_error;
+  double error = max_error*10;
+  size_t sh_mem_size;
+  int count = max(ncx, ncy);
   
   // device memory
-  
+  double *d_block_error;
   
   /*----------------------------- function body -------------------------*/
   
+  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
+  blockdim.x = ncx;
+  blockdim.y = 1024/ncx;
+  griddim = (ncy-2)/blockdim.y;
+  
+  // define size of shared memory for jacobi_iteration kernel
+  sh_mem_size = (2*blockdim.x*(blockdim.y+1)+blockdim.y)*sizeof(double);
+  
+  // allocate host memory
+  h_block_error = new double[griddim.x];
+  
+  // allocate device memory
+  cudaMalloc(&d_block_error, griddim.x*sizeof(double));
+  
+  // execute jacobi iterations until solved
+  while(count<=0 && error>=max_error)
+  {
+    // launch kernel for performing one jacobi iteration
+    jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, rho, phi, d_block_error);
+    
+    // copy device memory to host memory for analize errors
+    cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    // evaluate max error in the iteration
+    error = 0;
+    for (int i = 0; i < griddim.x; i++)
+    {
+      if (h_block_error[i]>error) error = h_block_error[i];
+    }
+    
+    // actualize counter
+    count--;
+  }
+  
+  return;
+}
+
+/**********************************************************/
+
+__global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, double *rho, double *phi, double *block_error)
+{
+  // shared memory
+  double *phi_old = (double *) sh_mem;                              //
+  double *error = (double *) &phi_old[blockdim.x*(blockdim.y+2)];   // manually set up shared memory variables inside whole shared memory
+  double *aux_shared = (double *) &error[blockdim.x*blockdim.y];    //
+  
+//   __shared__ double phi_old[BLOCKDIMX*(BLOCKDIMY+2)];
+//   __shared__ double aux_shared[BLOCKDIMY];
+//   __shared__ double error[BLOCKDIMX*BLOCKDIMY];
+  
+  // registers
+  double phi_new, rho_dummy;
+  int global_mem_index = blockDim.x + blockIdx.x*(blockDim.x*blockDim.y) + threadIdx.y*blockDim.x + threadIdx.x;
+  int shared_mem_index = blockDim.x + threadIdx.y*blockDim.x + threadIdx.x;
+  int thread_index = threadIdx.x + threadIdx.y*blockDim.x;
+  
+  // kernel body
+  
+  // load phi data from global memory to shared memory
+  phi_old[shared_mem_index] = phi[global_mem_index];
+  
+  // load comunication zones into shared memory
+  if (threadIdx.y == 0)
+  {
+    phi_old[shared_mem_index-blockDim.x] = phi[global_mem_index-blockDim.x];
+  }
+  if (threadIdx.y == blockDim.y-1)
+  {
+    phi_old[shared_mem_index+blockDim.x] = phi[global_mem_index+blockDim.x];
+  }
+  // load charge density data into registers
+  rho_dummy = ds*ds*rho[global_mem_index]/epsilon0;
+  __syncthreads();
+  
+  // actualize cyclic contour conditions
+  if (threadIdx.x == 0)
+  {
+    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index+blockDim.x-2] + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]+phi_old[shared_mem_index-blockDim.x]);
+    aux_shared[threadIdx.y] = phi_new;
+  }
+  __syncthreads();
+  if (threadIdx.x == blockDim.x-1)
+  {
+    phi_new = aux_shared[threadIdx.y];
+  }
+  
+  // actualize interior mesh points
+  if (threadIdx.x != 0 && threadIdx.x != blockDim.x-1)
+  {
+    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index-1] + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]+phi_old[shared_mem_index-blockDim.x]);
+  }
+  __syncthreads();
+  
+  // evaluate local errors
+  error[thread_index] = fabs(phi_new-phi_old[shared_mem_index]);
+  __syncthreads();
+  
+  // reduction for obtaining maximum error in current block
+  for (int stride = 1; stride < blockDim.x*blockDim.y; stride <<= 1)
+  {
+    if (thread_index%(stride*2) == 0)
+    {
+      if (thread_index+stride<blockDim.x*blockDim.y)
+      {
+        if (error[thread_index]<error[thread_index+stride]) error[thread_index] = error[thread_index+stride];
+      }
+    }
+    __syncthreads();
+  }
+  
+  // store block error in global memory
+  if (thread_index == 0)
+  {
+    block_error[blockIdx.x] = error[0];
+  }
+  
+  // store new values of phi in global memory
+  phi[global_mem_index] = phi_new;
   
   return;
 }

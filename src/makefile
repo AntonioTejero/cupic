@@ -11,18 +11,18 @@ CUPIC : main.cu init.cu cc.cu
 	rm *~ -f
 
 # CUPIC : main.o init.o cc.o
-# 	$(CC) $(ARCH) main.o init.o cc.o -lgsl -lgslcblas -o cupic
+# 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) main.o init.o cc.o -o cupic
 # 	rm *.o *~ -f
 # 	mv ./oolppic ../bin/oolppic
 # 
 # main.o : main.cu 
-# 	$(CC) $(ARCH) -c main.cu -o main.o 
+# 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -c main.cu -o main.o 
 # 
 # init.o : init.cu
-# 	$(CC) $(ARCH) -c init.cu -o init.o 
+# 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -c init.cu -o init.o 
 # 
 # cc.o : cc.cu
-# 	$(CC) $(ARCH) -c cc.cu -o cc.o
+# 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -c cc.cu -o cc.o
 	
 .PHONY : clean open
 

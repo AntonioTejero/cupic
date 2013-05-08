@@ -22,9 +22,11 @@
 
 // host function
 void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
+void poisson_solver(int ncx, int ncy, double de, double max_error, double epsilon0, double *rho, double *phi);
 
 // device kernels
 __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
+__global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, double *rho, double *phi, double *block_error);
 
 // device functions (overload atomic functions for double precision support)
 __device__ double atomicAdd(double* address, double val);
