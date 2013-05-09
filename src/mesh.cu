@@ -220,7 +220,7 @@ void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilo
   cudaMalloc(&d_block_error, griddim.x*sizeof(double));
   
   // execute jacobi iterations until solved
-  while(count<=0 && error>=max_error)
+  while(count>=0 && error>=max_error)
   {
     // launch kernel for performing one jacobi iteration
     jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, rho, phi, d_block_error);
@@ -246,6 +246,8 @@ void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilo
 
 __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, double *rho, double *phi, double *block_error)
 {
+  /*----------------------------- function body -------------------------*/
+  
   // shared memory
   double *phi_old = (double *) sh_mem;                              //
   double *error = (double *) &phi_old[blockdim.x*(blockdim.y+2)];   // manually set up shared memory variables inside whole shared memory
@@ -261,7 +263,7 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   int shared_mem_index = blockDim.x + threadIdx.y*blockDim.x + threadIdx.x;
   int thread_index = threadIdx.x + threadIdx.y*blockDim.x;
   
-  // kernel body
+  /*------------------------------ kernel body --------------------------*/
   
   // load phi data from global memory to shared memory
   phi_old[shared_mem_index] = phi[global_mem_index];
@@ -323,6 +325,121 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   
   // store new values of phi in global memory
   phi[global_mem_index] = phi_new;
+  
+  return;
+}
+
+/**********************************************************/
+
+void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *Ey) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  dim3 blockdim, griddim;
+  size_t sh_mem_size;
+  
+  // device memory
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
+  blockdim.x = ncx;
+  blockdim.y = 1024/ncx;
+  griddim = (ncy-2)/blockdim.y;
+  
+  // define size of shared memory for jacobi_iteration kernel
+  sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
+  
+  // launch kernel for performing the derivation of the potential to obtain the electric field
+  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, phi, Ex, Ey);
+
+  return;
+}
+
+/**********************************************************/
+
+__global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, double *Ex_global, double *Ey_global)
+{
+  /*---------------------------- kernel variables ------------------------*/
+  
+  // shared memory
+  double *phi = (double *) sh_mem;       // manually set up shared memory variables inside whole shared memory
+  
+  // registers
+  double Ex, Ey;
+  int global_mem_index = blockDim.x + blockIdx.x*(blockDim.x*blockDim.y) + threadIdx.y*blockDim.x + threadIdx.x;
+  int shared_mem_index = blockDim.x + threadIdx.y*blockDim.x + threadIdx.x;
+  
+  /*------------------------------ kernel body --------------------------*/
+  
+  // load phi data from global memory to shared memory
+  phi[shared_mem_index] = phi_global[global_mem_index];
+  
+  // load comunication zones into shared memory
+  if (threadIdx.y == 0)
+  {
+    phi[shared_mem_index-blockDim.x] = phi_global[global_mem_index-blockDim.x];
+  }
+  if (threadIdx.y == blockDim.y-1)
+  {
+    phi[shared_mem_index+blockDim.x] = phi_global[global_mem_index+blockDim.x];
+  }
+  __syncthreads();
+  
+  // calculate electric fields (except top and bottom)
+  if (threadIdx.x == 0)                       // calculate fields in left nodes of simulation (cyclic contour conditions)
+  {
+    Ex = (phi[shared_mem_index+blockDim.x-2] - phi[shared_mem_index+1])/(2.0*ds);
+    Ey = (phi[shared_mem_index-blockDim.x]-phi[shared_mem_index+blockDim.x])/(2.0*ds);
+  }
+  else if (threadIdx.x == blockDim.x-1)       // calculate fields in right nodes of simulation (cyclic contour conditions)
+  {
+    Ex = (phi[shared_mem_index-1] - phi[shared_mem_index-blockDim.x+2])/(2.0*ds);
+    Ey = (phi[shared_mem_index-blockDim.x]-phi[shared_mem_index+blockDim.x])/(2.0*ds);
+  } 
+  else                                        // actualize interior mesh points
+  {
+    Ex = (phi[shared_mem_index-1]-phi[shared_mem_index+1])/(2.0*ds);
+    Ey = (phi[shared_mem_index-blockDim.x]-phi[shared_mem_index+blockDim.x])/(2.0*ds);
+  }
+  __syncthreads();
+  
+  // store electric fields in global memory (except top and bottom)
+  Ex_global[global_mem_index] = Ex;
+  Ey_global[global_mem_index] = Ey;
+  
+  // calculate fields in top and bottom nodes of simulation
+  if (blockIdx.x == 0)
+  {
+    if (threadIdx.y == 0)
+    Ey = (phi[threadIdx.x]-phi[shared_mem_index])/ds;
+  }
+  else if (blockIdx.x == gridDim.x - 1)
+  {
+    if (threadIdx.y == blockDim.y - 1)
+    {
+      Ey = (phi[shared_mem_index]-phi[shared_mem_index+blockDim.x])/ds;
+    }
+  }
+  __syncthreads();
+  
+  // store electric fields in top and bottom nodes in global memory
+  if (blockIdx.x == 0)
+  {
+    if (threadIdx.y == 0)
+    {
+      Ey_global[global_mem_index-blockDim.x] = Ey;
+    }
+  }
+  else if (blockIdx.x == gridDim.x - 1)
+  {
+    if (threadIdx.y == blockDim.y - 1)
+    {
+      Ey_global[global_mem_index+blockDim.x] = Ey;
+    }
+  }
+  __syncthreads();
   
   return;
 }
