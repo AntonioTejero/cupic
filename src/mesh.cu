@@ -10,7 +10,7 @@
 
 #include "mesh.h"
 
-/************************ FUNCTION DEFINITIONS ***********************/
+/********************* HOST FUNCTION DEFINITIONS *********************/
 
 void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm) 
 {
@@ -38,6 +38,93 @@ void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, 
 }
 
 /**********************************************************/
+
+void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilon0, double *rho, double *phi) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  dim3 blockdim, griddim;
+  double *h_block_error;
+  double error = max_error*10;
+  size_t sh_mem_size;
+  int count = max(ncx, ncy);
+  
+  // device memory
+  double *d_block_error;
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
+  blockdim.x = ncx;
+  blockdim.y = 1024/ncx;
+  griddim = (ncy-2)/blockdim.y;
+  
+  // define size of shared memory for jacobi_iteration kernel
+  sh_mem_size = (2*blockdim.x*(blockdim.y+1)+blockdim.y)*sizeof(double);
+  
+  // allocate host memory
+  h_block_error = new double[griddim.x];
+  
+  // allocate device memory
+  cudaMalloc(&d_block_error, griddim.x*sizeof(double));
+  
+  // execute jacobi iterations until solved
+  while(count>=0 && error>=max_error)
+  {
+    // launch kernel for performing one jacobi iteration
+    jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, rho, phi, d_block_error);
+    
+    // copy device memory to host memory for analize errors
+    cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    // evaluate max error in the iteration
+    error = 0;
+    for (int i = 0; i < griddim.x; i++)
+    {
+      if (h_block_error[i]>error) error = h_block_error[i];
+    }
+    
+    // actualize counter
+    count--;
+  }
+  
+  return;
+}
+
+/**********************************************************/
+
+void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *Ey) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  dim3 blockdim, griddim;
+  size_t sh_mem_size;
+  
+  // device memory
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
+  blockdim.x = ncx;
+  blockdim.y = 1024/ncx;
+  griddim = (ncy-2)/blockdim.y;
+  
+  // define size of shared memory for jacobi_iteration kernel
+  sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
+  
+  // launch kernel for performing the derivation of the potential to obtain the electric field
+  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, phi, Ex, Ey);
+
+  return;
+}
+
+/**********************************************************/
+
+
+
+/******************** DEVICE KERNELS DEFINITIONS *********************/
 
 __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
 {
@@ -153,97 +240,6 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
 
 /**********************************************************/
 
-__device__ double atomicAdd(double* address, double val)
-{
-  /*--------------------------- function variables -----------------------*/
-  unsigned long long int* address_as_ull = (unsigned long long int*)address;
-  unsigned long long int old = *address_as_ull, assumed;
-  
-  /*----------------------------- function body -------------------------*/
-  do 
-  {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
-  } while (assumed != old);
-  
-  return __longlong_as_double(old);
-}
-
-/**********************************************************/
-
-__device__ double atomicSub(double* address, double val)
-{
-  /*--------------------------- function variables -----------------------*/
-  unsigned long long int* address_as_ull = (unsigned long long int*)address;
-  unsigned long long int old = *address_as_ull, assumed;
-  
-  /*----------------------------- function body -------------------------*/
-  do 
-  {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val - __longlong_as_double(assumed)));
-  } while (assumed != old);
-  
-  return __longlong_as_double(old);
-}
-
-/**********************************************************/
-
-void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilon0, double *rho, double *phi) 
-{
-  /*--------------------------- function variables -----------------------*/
-  
-  // host memory
-  dim3 blockdim, griddim;
-  double *h_block_error;
-  double error = max_error*10;
-  size_t sh_mem_size;
-  int count = max(ncx, ncy);
-  
-  // device memory
-  double *d_block_error;
-  
-  /*----------------------------- function body -------------------------*/
-  
-  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
-  blockdim.x = ncx;
-  blockdim.y = 1024/ncx;
-  griddim = (ncy-2)/blockdim.y;
-  
-  // define size of shared memory for jacobi_iteration kernel
-  sh_mem_size = (2*blockdim.x*(blockdim.y+1)+blockdim.y)*sizeof(double);
-  
-  // allocate host memory
-  h_block_error = new double[griddim.x];
-  
-  // allocate device memory
-  cudaMalloc(&d_block_error, griddim.x*sizeof(double));
-  
-  // execute jacobi iterations until solved
-  while(count>=0 && error>=max_error)
-  {
-    // launch kernel for performing one jacobi iteration
-    jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, rho, phi, d_block_error);
-    
-    // copy device memory to host memory for analize errors
-    cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
-    
-    // evaluate max error in the iteration
-    error = 0;
-    for (int i = 0; i < griddim.x; i++)
-    {
-      if (h_block_error[i]>error) error = h_block_error[i];
-    }
-    
-    // actualize counter
-    count--;
-  }
-  
-  return;
-}
-
-/**********************************************************/
-
 __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, double *rho, double *phi, double *block_error)
 {
   /*----------------------------- function body -------------------------*/
@@ -253,9 +249,9 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   double *error = (double *) &phi_old[blockdim.x*(blockdim.y+2)];   // manually set up shared memory variables inside whole shared memory
   double *aux_shared = (double *) &error[blockdim.x*blockdim.y];    //
   
-//   __shared__ double phi_old[BLOCKDIMX*(BLOCKDIMY+2)];
-//   __shared__ double aux_shared[BLOCKDIMY];
-//   __shared__ double error[BLOCKDIMX*BLOCKDIMY];
+  //   __shared__ double phi_old[BLOCKDIMX*(BLOCKDIMY+2)];
+  //   __shared__ double aux_shared[BLOCKDIMY];
+  //   __shared__ double error[BLOCKDIMX*BLOCKDIMY];
   
   // registers
   double phi_new, rho_dummy;
@@ -331,34 +327,6 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
 
 /**********************************************************/
 
-void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *Ey) 
-{
-  /*--------------------------- function variables -----------------------*/
-  
-  // host memory
-  dim3 blockdim, griddim;
-  size_t sh_mem_size;
-  
-  // device memory
-  
-  /*----------------------------- function body -------------------------*/
-  
-  // set dimensions of grid of blocks and blocks of threads for jacobi kernel
-  blockdim.x = ncx;
-  blockdim.y = 1024/ncx;
-  griddim = (ncy-2)/blockdim.y;
-  
-  // define size of shared memory for jacobi_iteration kernel
-  sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
-  
-  // launch kernel for performing the derivation of the potential to obtain the electric field
-  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, phi, Ex, Ey);
-
-  return;
-}
-
-/**********************************************************/
-
 __global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, double *Ex_global, double *Ey_global)
 {
   /*---------------------------- kernel variables ------------------------*/
@@ -381,7 +349,7 @@ __global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, 
   {
     phi[shared_mem_index-blockDim.x] = phi_global[global_mem_index-blockDim.x];
   }
-  if (threadIdx.y == blockDim.y-1)
+  else if (threadIdx.y == blockDim.y-1)
   {
     phi[shared_mem_index+blockDim.x] = phi_global[global_mem_index+blockDim.x];
   }
@@ -413,7 +381,9 @@ __global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, 
   if (blockIdx.x == 0)
   {
     if (threadIdx.y == 0)
-    Ey = (phi[threadIdx.x]-phi[shared_mem_index])/ds;
+    {
+      Ey = (phi[threadIdx.x]-phi[shared_mem_index])/ds;
+    }
   }
   else if (blockIdx.x == gridDim.x - 1)
   {
@@ -442,6 +412,46 @@ __global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, 
   __syncthreads();
   
   return;
+}
+
+/**********************************************************/
+
+
+
+/******************** DEVICE FUNCTION DEFINITIONS ********************/
+
+__device__ double atomicAdd(double* address, double val)
+{
+  /*--------------------------- function variables -----------------------*/
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  
+  /*----------------------------- function body -------------------------*/
+  do 
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
+  } while (assumed != old);
+  
+  return __longlong_as_double(old);
+}
+
+/**********************************************************/
+
+__device__ double atomicSub(double* address, double val)
+{
+  /*--------------------------- function variables -----------------------*/
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  
+  /*----------------------------- function body -------------------------*/
+  do 
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val - __longlong_as_double(assumed)));
+  } while (assumed != old);
+  
+  return __longlong_as_double(old);
 }
 
 /**********************************************************/

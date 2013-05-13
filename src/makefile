@@ -6,7 +6,7 @@ NVCCFLAGS = -arch=sm_21
 GSLFLAGS = -lgsl -lgslcblas
 
 CUPIC : main.cu init.cu cc.cu
-	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) main.cu init.cu cc.cu mesh.cu -o cupic
+	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) main.cu init.cu cc.cu mesh.cu particles.cu -o cupic
 	mv ./cupic ../bin/cupic
 	rm *~ -f
 
@@ -30,4 +30,4 @@ clean :
 	rm *.o *~ *.dat -f
 
 open :
-	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu makefile &
+	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu particles.h particles.cu makefile &
