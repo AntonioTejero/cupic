@@ -16,7 +16,7 @@
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
-#define PARTICLE_BLOCK_DIM 1024   //block dimension for defragmentation kernel
+#define CHARGE_DEP_BLOCK_DIM 1024   //block dimension for defragmentation kernel
 
 /************************ FUNCTION PROTOTIPES ************************/
 

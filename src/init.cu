@@ -16,7 +16,7 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
 {
   // function variables
   int N;                                          //initial number of particle of each species
-  int ncx, ncy;                                   //number of grid points in each dimension
+  int ncx, ncy, nnx, nny;                         //number of cells and nodes in each dimension
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); //default random number generator (gsl)
 
   // initialize enviromental variables for gsl random number generator
@@ -95,71 +95,72 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
 
   // calculate initial number of particles and number of mesh points
-  N = (**h_Lx)*(**h_dy)*(**h_dz)*(**h_n);
-  ncx = (**h_Lx)/(**h_dx)+1;
-  ncy = (**h_Ly)/(**h_dy)+1;
-  N *= ncy-1;
+  ncx = (**h_Lx)/(**h_dx);
+  ncy = (**h_Ly)/(**h_dy);
+  nnx = ncx + 1;
+  nny = ncy + 1;
+  N = int((**h_Lx)*(**h_dy)*(**h_dz)*(**h_n))*ncy;
 
   // allocate host memory for particle vectors
   *h_i = (particle*) malloc(N*sizeof(particle));
   *h_e = (particle*) malloc(N*sizeof(particle));
 
   // allocate host memory for bookmark vectors
-  *h_bookmarke = (unsigned int*) malloc(2*(ncy-1)*sizeof(unsigned int));
-  *h_bookmarki = (unsigned int*) malloc(2*(ncy-1)*sizeof(unsigned int));
+  *h_bookmarke = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
+  *h_bookmarki = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
 
   // allocate host memory for mesh variables
-  *h_rho = (double*) malloc(ncx*ncy*sizeof(double));
-  *h_phi = (double*) malloc(ncx*ncy*sizeof(double));
-  *h_Ex = (double*) malloc(ncx*ncy*sizeof(double));
-  *h_Ey = (double*) malloc(ncx*ncy*sizeof(double));
+  *h_rho = (double*) malloc(nnx*nny*sizeof(double));
+  *h_phi = (double*) malloc(nnx*nny*sizeof(double));
+  *h_Ex = (double*) malloc(nnx*nny*sizeof(double));
+  *h_Ey = (double*) malloc(nnx*nny*sizeof(double));
 
   // allocate device memory for particle vectors
   cudaMalloc (d_i, N*sizeof(particle));
   cudaMalloc (d_e, N*sizeof(particle));
 
   // allocate device memory for bookmark vectors
-  cudaMalloc (d_bookmarke, 2*(ncy-1)*sizeof(unsigned int));
-  cudaMalloc (d_bookmarki, 2*(ncy-1)*sizeof(unsigned int));
+  cudaMalloc (d_bookmarke, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (d_bookmarki, 2*ncy*sizeof(unsigned int));
 
   // allocate device memory for mesh variables
-  cudaMalloc (d_rho, ncx*ncy*sizeof(double));
-  cudaMalloc (d_phi, ncx*ncy*sizeof(double));
-  cudaMalloc (d_Ex, ncx*ncy*sizeof(double));
-  cudaMalloc (d_Ey, ncx*ncy*sizeof(double));
+  cudaMalloc (d_rho, nnx*nny*sizeof(double));
+  cudaMalloc (d_phi, nnx*nny*sizeof(double));
+  cudaMalloc (d_Ex, nnx*nny*sizeof(double));
+  cudaMalloc (d_Ey, nnx*nny*sizeof(double));
 
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy-1; i++)
   {
-    (*h_bookmarke)[2*i] = i*N/(ncy-1);
-    (*h_bookmarke)[2*i+1] = (i+1)*N/(ncy-1)-1;
-    (*h_bookmarki)[2*i] = i*N/(ncy-1);
-    (*h_bookmarki)[2*i+1] = (i+1)*N/(ncy-1)-1;
-    for (int j = 0; j < N/(ncy-1); j++)
+    (*h_bookmarke)[2*i] = i*N/ncy;
+    (*h_bookmarke)[2*i+1] = ((i+1)*N/ncy)-1;
+    (*h_bookmarki)[2*i] = i*N/ncy;
+    (*h_bookmarki)[2*i+1] = ((i+1)*N/ncy)-1;
+    for (int j = 0; j < N/ncy; j++)
     {
       // initialize ions
-      (*h_i)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-      (*h_i)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
-      (*h_i)[i*N/(ncy-1)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
-      (*h_i)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+      (*h_i)[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+      (*h_i)[(i*N/ncy)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
+      (*h_i)[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+      (*h_i)[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
 
       // initialize electrons
-      (*h_e)[i*N/(ncy-1)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-      (*h_e)[i*N/(ncy-1)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
-      (*h_e)[i*N/(ncy-1)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
-      (*h_e)[i*N/(ncy-1)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+      (*h_e)[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
+      (*h_e)[(i*N/ncy)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
+      (*h_e)[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+      (*h_e)[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
     }
   }
 
   //initialize mesh variables (host memory)
-  for (int im = 0; im < ncx; im++)
+  for (int im = 0; im < nnx; im++)
   {
-    for (int jm = 0; jm < ncy; jm++)
+    for (int jm = 0; jm < nny; jm++)
     {
-      (*h_Ex)[im+jm*(ncx)] = 0.0;
-      (*h_Ey)[im+jm*(ncx)] = 0.0;
-      (*h_rho)[im+jm*(ncx)] = 0.0;
-      (*h_phi)[im+jm*(ncx)] = (1.0 - double(jm)/double(ncy-1))*(**h_phi_p);
+      (*h_Ex)[im+jm*(nnx)] = 0.0;
+      (*h_Ey)[im+jm*(nnx)] = 0.0;
+      (*h_rho)[im+jm*(nnx)] = 0.0;
+      (*h_phi)[im+jm*(nnx)] = (1.0 - double(jm)/double(ncy))*(**h_phi_p);
     }
   }
 
@@ -188,10 +189,10 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   cudaMemcpy (*d_epsilon, *h_epsilon, sizeof(double), cudaMemcpyHostToDevice);
 
   // copy mesh properties from host to device memory
-  cudaMemcpy (*d_rho, *h_rho, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_phi, *h_phi, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_Ex, *h_Ex, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_Ey, *h_Ey, ncx*ncy*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_rho, *h_rho, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_phi, *h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_Ex, *h_Ex, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_Ey, *h_Ey, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
 
   // copy timing variables from host to device memory
   cudaMemcpy (*d_t, *h_t, sizeof(double), cudaMemcpyHostToDevice);

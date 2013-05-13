@@ -21,7 +21,7 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void cc (double t, double dt, double Lx, double dy, int ncx, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i);
+void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i);
 void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
 
 
