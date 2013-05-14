@@ -5,10 +5,8 @@ NVCC = nvcc
 NVCCFLAGS = -arch=sm_21
 GSLFLAGS = -lgsl -lgslcblas
 
-# CUPIC : main.cu init.cu cc.cu
-# 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) main.cu init.cu cc.cu mesh.cu particles.cu -o cupic
-# 	mv ./cupic ../bin/cupic
-# 	rm *~ -f
+
+# Makefile orders
 
 CUPIC : main.o init.o cc.o
 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -lcuda -lcudart main.o init.o cc.o -o cupic
