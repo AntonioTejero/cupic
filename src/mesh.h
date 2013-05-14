@@ -13,6 +13,7 @@
 /****************************** HEADERS ******************************/
 
 #include "stdh.h"
+#include "dynamic_sh_mem.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
@@ -21,21 +22,17 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
-void poisson_solver(int ncx, int ncy, double de, double max_error, double epsilon0, double *rho, double *phi);
+void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
+void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilon0, double *rho, double *phi);
 void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *Ey);
 
 // device kernels
-__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
+__global__ void charge_deposition(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
 __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, double *rho, double *phi, double *block_error);
 __global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, double *Ex_global, double *Ey_global);
 
 // device functions (overload atomic functions for double precision support)
 __device__ double atomicAdd(double* address, double val);
 __device__ double atomicSub(double* address, double val);
-
-// variable for allowing dynamic allocation of __shared__ memory (used in charge_deposition, poisson_solver, )
-extern __shared__ double sh_mem[];
-
 
 #endif

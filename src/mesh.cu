@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm) 
+void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm) 
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -32,7 +32,8 @@ void fast_particle_to_grid(int ncx, int ncy, double dx, double dy, double *rho, 
   // define size of shared memory for charge_deposition kernel
   sh_mem_size = 2*ncx*sizeof(double)+4*sizeof(unsigned int);
   
-  charge_deposition<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, dx, dy, rho, elec, e_bm, ions, i_bm);
+  // call to charge_deposition kernel
+  charge_deposition<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, ds, rho, elec, e_bm, ions, i_bm);
   
   return;
 }
@@ -126,7 +127,7 @@ void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
+__global__ void charge_deposition(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
 {
   /*--------------------------- kernel variables -----------------------*/
   
@@ -179,15 +180,15 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
     // load electron in registers
     p = elec[i];
     // calculate x coordinate of the cell that the electron belongs to
-    ic = int(p.x/dx);
+    ic = int(p.x/ds);
     // calculate distances from particle to down left vertex of the cell
-    distx = fabs(double(ic*dx)-p.x);
-    disty = fabs(double(jc*dy)-p.y);
+    distx = fabs(double(ic*ds)-p.x)/ds;
+    disty = fabs(double(jc*ds)-p.y)/ds;
     // acumulate charge in partial rho
-    atomicSub(sh_partial_rho+ic, (1.0-distx/dx)*(1.0-disty/dy));    //down left vertex
-    atomicSub(sh_partial_rho+ic+1, (distx/dx)*(1.0-disty/dy));      //down right vertex
-    atomicSub(sh_partial_rho+ic+ncx, (1.0-distx/dx)*(disty/dy));    //top left vertex
-    atomicSub(sh_partial_rho+ic+ncx+1, (distx/dx)*(disty/dy));      //top right vertex
+    atomicSub(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
+    atomicSub(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
+    atomicSub(sh_partial_rho+ic+ncx, (1.0-distx)*disty);    //top left vertex
+    atomicSub(sh_partial_rho+ic+ncx+1, distx*disty);        //top right vertex
   }
   
   // ion deposition
@@ -197,15 +198,15 @@ __global__ void charge_deposition(int ncx, int ncy, double dx, double dy, double
     // load electron in registers
     p = ions[i];
     // calculate x coordinate of the cell that the electron belongs to
-    ic = int(p.x/dx);
+    ic = int(p.x/ds);
     // calculate distances from particle to down left vertex of the cell
-    distx = fabs(double(ic*dx)-p.x);
-    disty = fabs(double(jc*dy)-p.y);
+    distx = fabs(double(ic*ds)-p.x)/ds;
+    disty = fabs(double(jc*ds)-p.y)/ds;
     // acumulate charge in partial rho
-    atomicAdd(sh_partial_rho+ic, (1.0-distx/dx)*(1.0-disty/dy));    //down left vertex
-    atomicAdd(sh_partial_rho+ic+1, (distx/dx)*(1.0-disty/dy));      //down right vertex
-    atomicAdd(sh_partial_rho+ic+ncx, (1.0-distx/dx)*(disty/dy));    //top left vertex
-    atomicAdd(sh_partial_rho+ic+ncx+1, (distx/dx)*(disty/dy));      //top right vertex
+    atomicAdd(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
+    atomicAdd(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
+    atomicAdd(sh_partial_rho+ic+ncx, (1.0-distx)*disty);    //top left vertex
+    atomicAdd(sh_partial_rho+ic+ncx+1, distx*disty);        //top right vertex
   }
   __syncthreads();
   
