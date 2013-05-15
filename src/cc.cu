@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i)
+void cc (double t, double dt, double Lx, double ds, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i)
 {
   /*--------------------------- function variables -----------------------*/
 
@@ -44,8 +44,8 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
   cudaMalloc (&d_i_new_bookmark, 2*ncy*sizeof(unsigned int));  
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
-  particle_bining(Lx, dy, ncy, d_e_bookmark, d_e_new_bookmark, *e);
-  particle_bining(Lx, dy, ncy, d_i_bookmark, d_i_new_bookmark, *i);
+  particle_bining(Lx, ds, ncy, d_e_bookmark, d_e_new_bookmark, *e);
+  particle_bining(Lx, ds, ncy, d_i_bookmark, d_i_new_bookmark, *i);
   
   // copy new bookmark to host memory
   cudaMemcpy (h_e_bookmark, d_e_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
@@ -100,7 +100,7 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
 
 /**********************************************************/
 
-void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
+void particle_bining(double Lx, double ds, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- function variables -----------------------*/
 
@@ -113,7 +113,7 @@ void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsi
   blockdim = BINING_BLOCK_DIM;
 
   // execute kernel for defragmentation of particles
-  particle_defragmentation<<<griddim, blockdim>>>(Lx, dy, bookmark, new_bookmark, p);
+  particle_defragmentation<<<griddim, blockdim>>>(Lx, ds, bookmark, new_bookmark, p);
 
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -129,7 +129,7 @@ void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsi
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void particle_defragmentation(double Lx, double dy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
+__global__ void particle_defragmentation(double Lx, double ds, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
 
@@ -181,13 +181,13 @@ __global__ void particle_defragmentation(double Lx, double dy, unsigned int *boo
   }
 
   // obtaining valid swap_index for each "-" particle in first batch
-  new_bin = p_reg.y/dy;
+  new_bin = p_reg.y/ds;
   if (new_bin<bin)
   {
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/dy)<bin);
+    } while (int(p_sha[swap_index].y/ds)<bin);
     // swapping "-" particles from first batch with "non -" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -230,7 +230,7 @@ __global__ void particle_defragmentation(double Lx, double dy, unsigned int *boo
       } 
 
       // analyze batch of particle in registers
-      new_bin = p_reg.y/dy;
+      new_bin = p_reg.y/ds;
       if (new_bin<bin)
       {
         // swapping "-" particles from registers with particles in exchange queue (shared memory)
@@ -287,13 +287,13 @@ __global__ void particle_defragmentation(double Lx, double dy, unsigned int *boo
   p_reg = p[i-threadIdx.x];
 
   // obtaining valid swap_index for each "+" particle in last batch
-  new_bin = p_reg.y/dy;
+  new_bin = p_reg.y/ds;
   if (new_bin>bin)
   {
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/dy)>bin);
+    } while (int(p_sha[swap_index].y/ds)>bin);
     // swapping "+" particles from first batch with "non +" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -327,7 +327,7 @@ __global__ void particle_defragmentation(double Lx, double dy, unsigned int *boo
       p_reg = p[i_shifted-threadIdx.x];
 
       // analyze batch of particle in registers
-      new_bin = p_reg.y/dy;
+      new_bin = p_reg.y/ds;
       if (new_bin>bin)
       {
         // swapping "+" particles from registers with particles in exchange queue (shared memory)

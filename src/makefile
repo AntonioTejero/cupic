@@ -8,9 +8,9 @@ GSLFLAGS = -lgsl -lgslcblas
 
 # Makefile orders
 
-CUPIC : main.o init.o cc.o
+CUPIC : main.o init.o cc.o mesh.o particles.o
 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -lcuda -lcudart main.o init.o cc.o -o cupic
-	rm *.o *~ -f
+	rm *~ -f
 	mv ./cupic ../bin/cupic
 
 main.o : main.cu 
@@ -23,10 +23,10 @@ cc.o : cc.cu
 	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -dc cc.cu -o cc.o
 	
 mesh.o : mesh.cu
-	$(NVCC) $(NVCCPLAGS) $(GSLFLAGS) -dc mesh.cu -o mesh.o
+	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -dc mesh.cu -o mesh.o
 	
 particles.o : particles.cu
-	$(NVCC) $(NVCCPLAGS) $(GSLFLAGS) -dc particles.cu -o particles.o
+	$(NVCC) $(NVCCFLAGS) $(GSLFLAGS) -dc particles.cu -o particles.o
 	
 .PHONY : clean open
 
