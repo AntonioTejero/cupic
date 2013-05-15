@@ -24,8 +24,8 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
   int in_e, in_i;                     //number of electron and ions added at plasma frontier
   int out_e, out_i;                   //number of electrons and ions a at plasma frontier
   
-  unsigned int h_e_bookmark[ncy], h_i_bookmark[ncy];           //old particle bookmarks
-  unsigned int h_e_new_bookmark[ncy], h_i_new_bookmark[ncy];   //new particle bookmarks
+  unsigned int h_e_bookmark[2*ncy], h_i_bookmark[2*ncy];           //old particle bookmarks
+  unsigned int h_e_new_bookmark[2*ncy], h_i_new_bookmark[2*ncy];   //new particle bookmarks
   
   // device memory
   unsigned int *d_e_new_bookmark, *d_i_new_bookmark;   //new particle bookmarks (have to be allocated in device memory)
@@ -40,18 +40,18 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
   in_i = (t+dt-lt_i)/delta_i;
   
   // allocate device memory for new particle bookmarks
-  cudaMalloc (&d_e_new_bookmark, ncy*sizeof(unsigned int));
-  cudaMalloc (&d_i_new_bookmark, ncy*sizeof(unsigned int));  
+  cudaMalloc (&d_e_new_bookmark, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (&d_i_new_bookmark, 2*ncy*sizeof(unsigned int));  
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
   particle_bining(Lx, dy, ncy, d_e_bookmark, d_e_new_bookmark, *e);
   particle_bining(Lx, dy, ncy, d_i_bookmark, d_i_new_bookmark, *i);
   
   // copy new bookmark to host memory
-  cudaMemcpy (h_e_bookmark, d_e_bookmark, ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_bookmark, d_i_bookmark, ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_e_new_bookmark, d_e_new_bookmark, ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_new_bookmark, d_i_new_bookmark, ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_bookmark, d_e_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_bookmark, d_i_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_new_bookmark, d_e_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_new_bookmark, d_i_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   
   // calculate outflowing particles of each type
   out_e = h_e_new_bookmark[0]-h_e_bookmark[0]+h_e_bookmark[2*ncy-1]-h_e_new_bookmark[2*ncy-1];
@@ -62,15 +62,16 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
   // electrons
   if (out_e != in_e) 
   {
-    int length = h_e_new_bookmark[2*ncy-1]-h_e_new_bookmark[0]+1;                                     //calculate size of particle vector that remains
-    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                                     //allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *e+h_e_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);     //move remaining particles to dummy vector (host memory)
+    int length = h_e_new_bookmark[2*ncy-1]-h_e_new_bookmark[0]+1;                                   // calculate number of particles that remains
+    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                                   // allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, *e+h_e_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
     
     // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
     
-    cudaFree(*e);                                                                                     //free old particles device memory
-    cudaMalloc(e, (length+in_e)*sizeof(particle));                                                    //allocate new device memory for particles
-    cudaMemcpy(*e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);                         //copy new particles to device memory
+    cudaFree(*e);                                                                                   // free old particles device memory
+    cudaMalloc(e, (length+in_e)*sizeof(particle));                                                  // allocate new device memory for particles
+    cudaMemcpy(*e, dummy_p, (length+in_e)*sizeof(particle), cudaMemcpyHostToDevice);                // copy new particles to device memory
+    free(dummy_p);                                                                                  // free intermediate particle vector (host memory)
   } else
   {
     // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
@@ -79,15 +80,16 @@ void cc (double t, double dt, double Lx, double dy, int ncy, unsigned int *d_e_b
   // ions
   if (out_i != in_i) 
   {
-    int length = h_i_new_bookmark[2*ncy-1]-h_i_new_bookmark[0]+1;                                       //calculate size of particle vector that remains
-    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                                      //allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, i+h_i_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);      //move remaining particles to dummy vector (host memory)
+    int length = h_i_new_bookmark[2*ncy-1]-h_i_new_bookmark[0]+1;                                   // calculate number of particles that remains
+    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                                   // allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, i+h_i_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);    // move remaining particles to dummy vector (host memory)
     
     // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
     
-    cudaFree(i);                                                                                      //free old particles device memory
-    cudaMalloc(i, (length+in_i)*sizeof(particle));                                                    //allocate new device memory for particles
-    cudaMemcpy(i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);                          //copy new particles to device memory
+    cudaFree(i);                                                                                    // free old particles device memory
+    cudaMalloc(i, (length+in_i)*sizeof(particle));                                                  // allocate new device memory for particles
+    cudaMemcpy(i, dummy_p, (length+in_e)*sizeof(particle), cudaMemcpyHostToDevice);                 // copy new particles to device memory
+    free(dummy_p);                                                                                  // free intermediate particle vector (host memory)
   } else
   {
     // FIELDS NEEDED FOR SIMPLE PUSH (INSERTION OF PARTICLES NEED TO BE IMPLEMENTED)
