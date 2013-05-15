@@ -12,6 +12,8 @@
 #include "stdh.h"
 #include "init.h"
 #include "cc.h"
+#include "mesh.h"
+#include "particles.h"
 
 /************************ FUNCTION PROTOTIPES *************************/
 
@@ -51,21 +53,3 @@ int main (int argc, const char* argv[])
 
   return 0;
 }
-
-/****************************** FUNCTION DEFINITION ******************************/
-
-// fast particle-to-grid interpolation (based on the article by George Stantchev, William Dorland and Nail Gumerov)
-
-void fast_particle_to_grid_interpolation (double dy, int ncy, int *bookmark, particle **p)
-{
-  // function variables
-
-  // function body
-//   particle_bining();
-//   particle_to_cell_density_deposition();
-//   cell_to_vertex_density_accumulation();
-
-  return;
-}
-
-/**********************************************************/
