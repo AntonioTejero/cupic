@@ -13,14 +13,8 @@
 /****************************** HEADERS ******************************/
 
 #include "stdh.h"
+#include "gslrand.h"
 
-#ifndef RAND_H
-#define RAND_H
-
-#include <gsl/gsl_rng.h>        //gsl library for random number generation
-#include <gsl/gsl_randist.h>    //gsl library for random number generation
-
-#endif
 
 /************************ FUNCTION PROTOTIPES ************************/
 
