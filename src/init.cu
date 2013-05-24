@@ -12,116 +12,65 @@
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
-void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, unsigned int **h_bookmarke, unsigned int **h_bookmarki, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_bookmarke, unsigned int **d_bookmarki)
+void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_e_bm, unsigned int **d_i_bm)
 {
-  // function variables
-  int N;                                          //initial number of particle of each species
-  int ncx, ncy, nnx, nny;                         //number of cells and nodes in each dimension
-  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); //default random number generator (gsl)
-
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  const double qi = init_qi();                // ion's charge
+  const double qe = init_qe();                // electron's charge
+  const double mi = init_mi();                // ion's mass
+  const double me = init_me();                // electron's mass
+  const double kti = init_kti();              // ion's thermal energy
+  const double kte = init_kte();              // electron's thermal energy
+  const double phi_p = init_phi_p();          // probe's potential
+  const double n = init_n();                  // plasma density
+  const double Lx = init_Lx();                // size of the simulation in the x dimension (ccc)
+  const double Ly = init_Ly();                // size of the simulation in the y dimension 
+  const double ds = init_ds();                // spatial step size
+  const double dt = init_dt();                // temporal step size
+  const double epsilon0 = init_epsilon0();    // permittivity of free space
+  const int ncx = init_ncx();              // number of cells in the x dimension
+  const int ncy = init_ncy();              // number of cells in the y dimension
+  const int nnx = init_nnx();              // number of nodes in the x dimension
+  const int nny = init_nny();              // number of nodes in the y dimension
+  
+  
+  int N;                                      // initial number of particle of each species
+  particle *h_i, *h_e;                        // host vectors of particles
+  unsigned int *h_e_bm, *h_i_bm;              // host vectors for bookmarks
+  double *h_phi;                              // host vector for potentials
+  
+  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
+  
+  // device memory
+  
+  /*----------------------------- function body -------------------------*/
+  
   // initialize enviromental variables for gsl random number generator
   gsl_rng_env_setup();
-
-  // allocate host memory for particle properties
-  *h_qi = (double*) malloc(sizeof(double));
-  *h_qe = (double*) malloc(sizeof(double));
-  *h_mi = (double*) malloc(sizeof(double));
-  *h_me = (double*) malloc(sizeof(double));
-  *h_kti = (double*) malloc(sizeof(double));
-  *h_kte = (double*) malloc(sizeof(double));
-
-  // allocate host memory for plasma properties
-  *h_n = (double*) malloc(sizeof(double));
-
-  // allocate host memory for probe properties
-  *h_phi_p = (double*) malloc(sizeof(double));
-
-  // allocate host memory for geometrical properties of simulation
-  *h_Lx = (double*) malloc(sizeof(double));
-  *h_Ly = (double*) malloc(sizeof(double));
-  *h_dx = (double*) malloc(sizeof(double));
-  *h_dy = (double*) malloc(sizeof(double));
-  *h_dz = (double*) malloc(sizeof(double));
-
-  // allocate host memory for electromagnetic properties
-  *h_epsilon = (double*) malloc(sizeof(double));
-
-  // allocate host memory for mesh properties
-  *h_rho = (double*) malloc(sizeof(double));
-  *h_phi = (double*) malloc(sizeof(double));
-  *h_Ex = (double*) malloc(sizeof(double));
-  *h_Ey = (double*) malloc(sizeof(double));
-
-  // allocate host memory for timing variables
-  *h_t = (double*) malloc(sizeof(double));
-  *h_dt = (double*) malloc(sizeof(double));
-
-  // allocate device memory for particle properties
-  cudaMalloc (d_qi, sizeof(double));
-  cudaMalloc (d_qe, sizeof(double));
-  cudaMalloc (d_mi, sizeof(double));
-  cudaMalloc (d_me, sizeof(double));
-  cudaMalloc (d_kti, sizeof(double));
-  cudaMalloc (d_kte, sizeof(double));
-
-  // allocate device memory for plasma properties
-  cudaMalloc (d_n, sizeof(double));
-
-  // allocate device memory for probe properties
-  cudaMalloc (d_phi_p, sizeof(double));
-
-  // allocate device memory for geometrical properties of simulation
-  cudaMalloc (d_Lx, sizeof(double));
-  cudaMalloc (d_Ly, sizeof(double));
-  cudaMalloc (d_dx, sizeof(double));
-
-  cudaMalloc (d_dy, sizeof(double));
-  cudaMalloc (d_dz, sizeof(double));
-
-  // allocate device memory for electromagnetic properties
-  cudaMalloc (d_epsilon, sizeof(double));
-
-  // allocate device memory for mesh properties
-  cudaMalloc (d_rho, sizeof(double));
-  cudaMalloc (d_phi, sizeof(double));
-  cudaMalloc (d_Ex, sizeof(double));
-  cudaMalloc (d_Ey, sizeof(double));
-
-  // allocate device memory for timing variables
-  cudaMalloc (d_t, sizeof(double));
-  cudaMalloc (d_dt, sizeof(double));
-
-  // read input file
-  read_input_file (*h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte, *h_phi_p, *h_n, *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz, *h_t, *h_dt, *h_epsilon);
-
+  
   // calculate initial number of particles and number of mesh points
-  ncx = (**h_Lx)/(**h_dx);
-  ncy = (**h_Ly)/(**h_dy);
-  nnx = ncx + 1;
-  nny = ncy + 1;
-  N = int((**h_Lx)*(**h_dy)*(**h_dz)*(**h_n))*ncy;
+  N = int(Lx*ds*ds)*ncy;
 
   // allocate host memory for particle vectors
-  *h_i = (particle*) malloc(N*sizeof(particle));
-  *h_e = (particle*) malloc(N*sizeof(particle));
+  h_i = (particle*) malloc(N*sizeof(particle));
+  h_e = (particle*) malloc(N*sizeof(particle));
 
   // allocate host memory for bookmark vectors
-  *h_bookmarke = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
-  *h_bookmarki = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
+  h_e_bm = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
+  h_i_bm = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
 
-  // allocate host memory for mesh variables
-  *h_rho = (double*) malloc(nnx*nny*sizeof(double));
-  *h_phi = (double*) malloc(nnx*nny*sizeof(double));
-  *h_Ex = (double*) malloc(nnx*nny*sizeof(double));
-  *h_Ey = (double*) malloc(nnx*nny*sizeof(double));
+  // allocate host memory for potential
+  h_phi = (double*) malloc(nnx*nny*sizeof(double));
 
   // allocate device memory for particle vectors
   cudaMalloc (d_i, N*sizeof(particle));
   cudaMalloc (d_e, N*sizeof(particle));
 
   // allocate device memory for bookmark vectors
-  cudaMalloc (d_bookmarke, 2*ncy*sizeof(unsigned int));
-  cudaMalloc (d_bookmarki, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (d_e_bm, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (d_i_bm, 2*ncy*sizeof(unsigned int));
 
   // allocate device memory for mesh variables
   cudaMalloc (d_rho, nnx*nny*sizeof(double));
@@ -132,84 +81,50 @@ void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, dou
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy-1; i++)
   {
-    (*h_bookmarke)[2*i] = i*N/ncy;
-    (*h_bookmarke)[2*i+1] = ((i+1)*N/ncy)-1;
-    (*h_bookmarki)[2*i] = i*N/ncy;
-    (*h_bookmarki)[2*i+1] = ((i+1)*N/ncy)-1;
+    h_e_bm[2*i] = i*N/ncy;
+    h_e_bm[2*i+1] = ((i+1)*N/ncy)-1;
+    h_i_bm[2*i] = i*N/ncy;
+    h_i_bm[2*i+1] = ((i+1)*N/ncy)-1;
     for (int j = 0; j < N/ncy; j++)
     {
       // initialize ions
-      (*h_i)[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-      (*h_i)[(i*N/ncy)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
-      (*h_i)[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
-      (*h_i)[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kti)/(**h_mi)));
+      h_i[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*Lx;
+      h_i[(i*N/ncy)+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
+      h_i[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt(kti/mi));
+      h_i[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt(kti/mi));
 
       // initialize electrons
-      (*h_e)[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*(**h_Lx);
-      (*h_e)[(i*N/ncy)+j].y = double(i)*(**h_dy)+gsl_rng_uniform_pos(rng)*(**h_dy);
-      (*h_e)[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
-      (*h_e)[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt((**h_kte)/(**h_me)));
+      h_e[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*Lx;
+      h_e[(i*N/ncy)+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
+      h_e[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt(kte/me));
+      h_e[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt(kte/me));
     }
   }
 
-  //initialize mesh variables (host memory)
+  //initialize potential (host memory)
   for (int im = 0; im < nnx; im++)
   {
     for (int jm = 0; jm < nny; jm++)
     {
-      (*h_Ex)[im+jm*(nnx)] = 0.0;
-      (*h_Ey)[im+jm*(nnx)] = 0.0;
-      (*h_rho)[im+jm*(nnx)] = 0.0;
-      (*h_phi)[im+jm*(nnx)] = (1.0 - double(jm)/double(ncy))*(**h_phi_p);
+      h_phi[im+jm*(nnx)] = (1.0 - double(jm)/double(ncy))*phi_p;
     }
   }
 
-  // copy particle properties from host to device memory
-  cudaMemcpy (*d_qi, *h_qi, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_qe, *h_qe, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_mi, *h_mi, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_me, *h_me, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_kti, *h_kti, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_kte, *h_kte, sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy plasma properties from host to device memory
-  cudaMemcpy (*d_n, *h_n, sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy probe properties from host to device memory
-  cudaMemcpy (*d_phi_p, *h_phi_p, sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy geometrical properties from host to device memory
-  cudaMemcpy (*d_Lx, *h_Lx, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_Ly, *h_Ly, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_dx, *h_dx, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_dy, *h_dy, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_dz, *h_dz, sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy electromagnetic properties from host to device memory
-  cudaMemcpy (*d_epsilon, *h_epsilon, sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy mesh properties from host to device memory
-  cudaMemcpy (*d_rho, *h_rho, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_phi, *h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_Ex, *h_Ex, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_Ey, *h_Ey, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
-
-  // copy timing variables from host to device memory
-  cudaMemcpy (*d_t, *h_t, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_dt, *h_dt, sizeof(double), cudaMemcpyHostToDevice);
-
   // copy particle and bookmark vectors from host to device memory
-  cudaMemcpy (*d_i, *h_i, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e, *h_e, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_bookmarki, *h_bookmarki, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_bookmarke, *h_bookmarke, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_i, h_i, N*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e, h_e, N*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_i_bm, h_i_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e_bm, h_e_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
+  // copy potential from host to device memory
+  cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  
   return;
 }
 
 /**********************************************************/
 
-void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte, double *h_phi_p, double *h_n, double *h_Lx, double *h_Ly, double *h_dx, double *h_dy, double *h_dz, double *h_t, double *h_dt, double *h_epsilon)
+void read_input_file (double *qi, double *qe, double *mi, double *me, double *kti, double *kte, double *phi_p, double *n, double *Lx, double *Ly, double *ds, double *dt, double *epsilon0)
 {
   // function variables
   ifstream myfile;
@@ -221,47 +136,41 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
   {
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "q_i = %lf \n", h_qi);
+    sscanf (line, "q_i = %lf \n", qi);
     myfile.getline (line, 80);
-    sscanf (line, "q_e = %lf \n", h_qe);
+    sscanf (line, "q_e = %lf \n", qe);
     myfile.getline (line, 80);
-    sscanf (line, "m_i = %lf \n", h_mi);
+    sscanf (line, "m_i = %lf \n", mi);
     myfile.getline (line, 80);
-    sscanf (line, "m_e = %lf \n", h_me);
+    sscanf (line, "m_e = %lf \n", me);
     myfile.getline (line, 80);
-    sscanf (line, "kT_i = %lf \n", h_kti);
+    sscanf (line, "kT_i = %lf \n", kti);
     myfile.getline (line, 80);
-    sscanf (line, "kT_e = %lf \n", h_kte);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "phi_p = %lf \n", h_phi_p);
+    sscanf (line, "kT_e = %lf \n", kte);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "n = %lf \n", h_n);
+    sscanf (line, "phi_p = %lf \n", phi_p);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "Lx = %lf \n", h_Lx);
-    myfile.getline (line, 80);
-    sscanf (line, "Ly = %lf \n", h_Ly);
-    myfile.getline (line, 80);
-    sscanf (line, "dx = %lf \n", h_dx);
-    myfile.getline (line, 80);
-    sscanf (line, "dy = %lf \n", h_dy);
-    myfile.getline (line, 80);
-    sscanf (line, "dz = %lf \n", h_dz);
+    sscanf (line, "n = %lf \n", n);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "t = %lf \n", h_t);
+    sscanf (line, "Lx = %lf \n", Lx);
     myfile.getline (line, 80);
-    sscanf (line, "dt = %lf \n", h_dt);
+    sscanf (line, "Ly = %lf \n", Ly);
+    myfile.getline (line, 80);
+    sscanf (line, "dx = %lf \n", ds);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "epsilon0 = %lf \n", h_epsilon);
+    sscanf (line, "dt = %lf \n", dt);
+    myfile.getline (line, 80);
+    myfile.getline (line, 80);
+    myfile.getline (line, 80);
+    sscanf (line, "epsilon0 = %lf \n", epsilon0);
   } else
   {
     cout << "input data file could not be opened" << endl;
@@ -272,3 +181,248 @@ void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, do
 }
 
 /**********************************************************/
+
+double init_qi(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return qi;
+}
+
+/**********************************************************/
+
+double init_qe(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return qe;
+}
+
+/**********************************************************/
+
+double init_mi(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return mi;
+}
+
+/**********************************************************/
+
+double init_me(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return me;
+}
+
+/**********************************************************/
+
+double init_kti(void) 
+{ 
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return kti;
+}
+
+/**********************************************************/
+
+double init_kte(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return kte;
+}
+
+/**********************************************************/
+
+double init_phi_p(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return phi_p;
+}
+
+/**********************************************************/
+
+double init_n(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return n;
+}
+
+/**********************************************************/
+
+double init_Lx(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return Lx;
+}
+
+/**********************************************************/
+
+double init_Ly(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return Ly;
+}
+
+/**********************************************************/
+
+double init_ds(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return ds;
+}
+
+/**********************************************************/
+
+double init_dt(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return dt;
+}
+
+/**********************************************************/
+
+double init_epsilon0(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  
+  return epsilon0;
+}
+
+/**********************************************************/
+
+int init_ncx(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  int ncx;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  ncx = int(Lx/ds);
+  
+  return ncx;
+}
+
+/**********************************************************/
+
+int init_ncy(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  int ncy;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  ncy = int(Ly/ds);
+  
+  return ncy;
+}
+
+/**********************************************************/
+
+int init_nnx(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  int nnx;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  nnx = int(Lx/ds)+1;
+  
+  return nnx;
+}
+
+/**********************************************************/
+
+int init_nny(void) 
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  int nny;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  nny = int(Ly/ds)+1;
+  
+  return nny;
+}
+

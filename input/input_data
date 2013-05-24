@@ -15,12 +15,9 @@ n = 1.0e5;
 #mesh properties of the simulation
 Lx = 2.0e0;
 Ly = 5.0e0;
-dx = 5.0e-2;
-dy = 5.0e-2;
-dz = 5.0e-2;
+ds = 5.0e-2;
 
 #time variables
-t = 0.0;
 dt = 1.0e-3;
 
 #electromagnetic properties

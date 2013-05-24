@@ -18,8 +18,27 @@
 
 /************************ FUNCTION PROTOTIPES ************************/
 
-void initialize (double **h_qi, double **h_qe, double **h_mi, double **h_me, double **h_kti, double **h_kte, double **h_phi_p, double **h_n, double **h_Lx, double **h_Ly, double **h_dx, double **h_dy, double **h_dz, double **h_t, double **h_dt, double **h_epsilon, double **h_rho, double **h_phi, double **h_Ex, double **h_Ey, particle **h_e, particle **h_i, unsigned int **h_bookmarke, unsigned int **h_bookmarki, double **d_qi, double **d_qe, double **d_mi, double **d_me, double **d_kti, double **d_kte, double **d_phi_p, double **d_n, double **d_Lx, double **d_Ly, double **d_dx, double **d_dy, double **d_dz, double **d_t, double **d_dt, double **d_epsilon, double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_bookmarke, unsigned int **d_bookmarki);
+// host functions
+void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_e_bm, unsigned int **d_i_bm);
 
-void read_input_file (double *h_qi, double *h_qe, double *h_mi, double *h_me, double *h_kti, double *h_kte, double *h_phi_p, double *h_n, double *h_Lx, double *h_Ly, double *h_dx, double *h_dy, double *h_dz, double *h_t, double *h_dt, double *h_epsilon);
+void read_input_file (double *qi, double *qe, double *mi, double *me, double *kti, double *kte, double *phi_p, double *n, double *Lx, double *Ly, double *ds, double *dt, double *epsilon0);
+
+double init_qi(void);
+double init_qe(void);
+double init_mi(void);
+double init_me(void);
+double init_kti(void);
+double init_kte(void);
+double init_phi_p(void);
+double init_n(void);
+double init_Lx(void);
+double init_Ly(void);
+double init_ds(void);
+double init_dt(void);
+double init_epsilon0(void);
+int init_ncx(void);
+int init_ncy(void);
+int init_nnx(void);
+int init_nny(void);
 
 #endif

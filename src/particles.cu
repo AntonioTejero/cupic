@@ -38,7 +38,7 @@ void particle_mover(int nnx, int ncy, double ds, double dt, particle *elec, unsi
   //---- move electrons
   
   // evaluate number of particles to move (electrons)
-  cudaMalloc(&h_bm, 2*ncy*sizeof(unsigned int));
+  h_bm = (unsigned int *) malloc(2*ncy*sizeof(unsigned int));
   cudaMemcpy(h_bm, e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   np = h_bm[2*ncy-1]-h_bm[0];
   
