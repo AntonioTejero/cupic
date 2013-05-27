@@ -14,6 +14,8 @@
 
 #include "stdh.h"
 #include "gslrand.h"
+#include "mesh.h"
+#include "particles.h"
 
 
 /************************ FUNCTION PROTOTIPES ************************/
@@ -42,5 +44,8 @@ int init_ncx(void);
 int init_ncy(void);
 int init_nnx(void);
 int init_nny(void);
+
+// device kernels
+__global__ void fix_velocity(double dt, double m, particle *g_p, unsigned int *g_bm, double *g_Fx, double *g_Fy);
 
 #endif

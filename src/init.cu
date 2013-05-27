@@ -35,16 +35,18 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   const int nnx = init_nnx();                 // number of nodes in the x dimension
   const int nny = init_nny();                 // number of nodes in the y dimension
   
-  
   int N;                                      // initial number of particle of each species
   particle *h_i, *h_e;                        // host vectors of particles
   unsigned int *h_e_bm, *h_i_bm;              // host vectors for bookmarks
   double *h_phi;                              // host vector for potentials
   
+  dim3 griddim, blockdim;
+  size_t sh_mem_size;
+  
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
   
   // device memory
-  /*(parameters of the function)*/
+  double *d_Fx, *d_Fy;                        // vectors for store the force that suffer each particle
   
   /*----------------------------- function body -------------------------*/
   
@@ -112,13 +114,48 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   }
 
   // copy particle and bookmark vectors from host to device memory
-  cudaMemcpy (*d_i, h_i, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e, h_e, N*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_i_bm, h_i_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e_bm, h_e_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
   // copy potential from host to device memory
   cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  
+  // deposit charge into the mesh nodes
+  charge_deposition((*d_rho), (*d_e), (*d_e_bm), (*d_i), (*d_i_bm));
+  
+  // solve poisson equation
+  poisson_solver(1.0e-12, (*d_rho), (*d_phi));
+  
+  // derive electric fields from potential
+  field_solver((*d_phi), (*d_Ex), (*d_Ey));
+  
+  // allocate device memory for particle forces
+  cudaMalloc(&d_Fx, N*sizeof(double));
+  cudaMalloc(&d_Fy, N*sizeof(double));
+  
+  // call kernels to calculate particle forces and fix their velocities
+  griddim = ncy;                                                  // set dimensions of grid of blocks for fast_grid_to_particle and fix_velocity kernel
+  blockdim = PAR_MOV_BLOCK_DIM;                                   // set dimensions of block of threads for fast_grid_to_particle and fix_velocity kernel
+  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(unsigned int);    // define size of shared memory for fast_grid_to_particle kernel
+  
+  // electrons
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);    // calculate forces
+  fix_velocity<<<griddim, blockdim>>>(dt, me, (*d_e), (*d_e_bm), d_Fx, d_Fy);                                                 // fix electron's velocities
+  // ions
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, (*d_i), (*d_i_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);    // calculate forces
+  fix_velocity<<<griddim, blockdim>>>(dt, mi, (*d_i), (*d_i_bm), d_Fx, d_Fy);                                                 // fix ion's velocities
+  
+  // free device and host memories 
+  free(h_i);
+  free(h_e);
+  free(h_i_bm);
+  free(h_e_bm);
+  free(h_phi);
+  cudaFree(d_Fx);
+  cudaFree(d_Fy);
+  
   
   return;
 }
@@ -458,3 +495,53 @@ double init_dtin_e(void)
   
   return dtin_e;
 }
+
+/**********************************************************/
+
+
+
+/******************** DEVICE KERNELS DEFINITIONS *********************/
+
+__global__ void fix_velocity(double dt, double m, particle *g_p, unsigned int *g_bm, double *g_Fx, double *g_Fy) 
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  __shared__ unsigned int sh_bm[2];   // manually set up shared memory variables inside whole shared memory
+  
+  // kernel registers
+  particle p;
+  double Fx, Fy;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- initialize shared memory variables
+  
+  // load bin bookmarks from global memory
+  if (threadIdx.x < 2)
+  {
+    sh_bm[threadIdx.x] = g_bm[blockIdx.x*2+threadIdx.x];
+  }
+  __syncthreads();
+  
+  //---- Process batches of particles
+  
+  for (int i = sh_bm[0]+threadIdx.x; i<=sh_bm[1]; i+=blockDim.x)
+  {
+    // load particle data in registers
+    p = g_p[i];
+    Fx = g_Fx[i];
+    Fy = g_Fy[i];
+    
+    // fix particle's velocity
+    p.vx -= 0.5*dt*Fx/m;
+    p.vy -= 0.5*dt*Fy/m;
+    
+    // store particle data in global memory
+    g_p[i] = p;
+  }
+  
+  return;
+}
+
+/**********************************************************/
