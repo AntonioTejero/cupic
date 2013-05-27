@@ -53,5 +53,23 @@ int main (int argc, const char* argv[])
 
   initialize (&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
   
+  for (int i = 0; i < 10; i++, t += dt) 
+  {
+    // deposit charge into the mesh nodes
+    charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
+    
+    // solve poisson equation
+    poisson_solver(1.0e-12, d_rho, d_phi);
+    
+    // derive electric fields from potential
+    field_solver(d_phi, d_Ex, d_Ey);
+    
+    // move particles
+    particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
+    
+    // contour condition
+    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
+  }
+  
   return 0;
 }

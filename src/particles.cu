@@ -77,7 +77,7 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   // call to fast_grid_to_particle kernel (ions)
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, d_i, d_i_bm, Ex, Ey, Fx, Fy);
   
-  // call to fast_grid_to_particle kernel (ions)
+  // call to leap_frog_step kernel (ions)
   leap_frog_step<<<griddim, blockdim>>>(dt, mi, d_i, d_i_bm, Fx, Fy);
   
   // free device memory for particle forces (ions)

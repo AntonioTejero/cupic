@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, particle **i, double *d_Ex, double *d_Ey)
+void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey)
 {
   /*--------------------------- function variables -----------------------*/
 
@@ -54,25 +54,25 @@ void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, par
   static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);  //default random number generator (gsl)
   
   // device memory
-  unsigned int *d_e_new_bookmark, *d_i_new_bookmark;      // new particle bookmarks (have to be allocated in device memory)
+  unsigned int *d_e_new_bm, *d_i_new_bm;      // new particle bookmarks (have to be allocated in device memory)
 
   /*----------------------------- function body -------------------------*/
 
   //---- sorting and cyclic contour conditions
   
   // allocate device memory for new particle bookmarks
-  cudaMalloc (&d_e_new_bookmark, 2*ncy*sizeof(unsigned int));
-  cudaMalloc (&d_i_new_bookmark, 2*ncy*sizeof(unsigned int));  
+  cudaMalloc (&d_e_new_bm, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (&d_i_new_bm, 2*ncy*sizeof(unsigned int));  
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
-  particle_bining(Lx, ds, ncy, d_e_bm, d_e_new_bookmark, *e);
-  particle_bining(Lx, ds, ncy, d_i_bm, d_i_new_bookmark, *i);
+  particle_bining(Lx, ds, ncy, d_e_bm, d_e_new_bm, *d_e);
+  particle_bining(Lx, ds, ncy, d_i_bm, d_i_new_bm, *d_i);
   
   // copy new and old bookmark to host memory
   cudaMemcpy (h_e_bm, d_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   cudaMemcpy (h_i_bm, d_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_e_new_bm, d_e_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_new_bm, d_i_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_new_bm, d_e_new_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_new_bm, d_i_new_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   
   //---- absorbent/emitter contour conditions
   
@@ -92,8 +92,8 @@ void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, par
     // move particles to host dummy vector
     length = h_e_new_bm[2*ncy-1]-h_e_new_bm[0]+1;                                             // calculate number of particles that remains
     dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                             // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
-    cudaFree(*e);                                                                             // free old particles device memory
+    cudaMemcpy(dummy_p, *d_e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost); // move remaining particles to dummy vector (host memory)
+    cudaFree(*d_e);                                                                           // free old particles device memory
     
     // actualize bookmarks (left removed particles)
     if (out_e_l != 0)
@@ -163,8 +163,8 @@ void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, par
     }
     
     // copy new particles to device memory
-    cudaMalloc(e, length*sizeof(particle));                                     // allocate new device memory for particles
-    cudaMemcpy(*e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);   // copy new particles to device memory
+    cudaMalloc(d_e, length*sizeof(particle));                                   // allocate new device memory for particles
+    cudaMemcpy(*d_e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice); // copy new particles to device memory
     free(dummy_p);                                                              // free intermediate particle vector (host memory)
   }
   
@@ -174,8 +174,8 @@ void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, par
     // move particles to host dummy vector
     length = h_i_new_bm[2*ncy-1]-h_i_new_bm[0]+1;                                             // calculate number of particles that remains
     dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                             // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
-    cudaFree(*i);                                                                             // free old particles device memory
+    cudaMemcpy(dummy_p, *d_i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost); // move remaining particles to dummy vector (host memory)
+    cudaFree(*d_i);                                                                           // free old particles device memory
     
     // actualize bookmarks (left removed particles)
     if (out_i_l != 0)
@@ -245,8 +245,8 @@ void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, par
     }
     
     // copy new particles to device memory
-    cudaMalloc(i, length*sizeof(particle));                                     // allocate new device memory for particles
-    cudaMemcpy(*i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);   // copy new particles to device memory
+    cudaMalloc(d_i, length*sizeof(particle));                                   // allocate new device memory for particles
+    cudaMemcpy(*d_i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice); // copy new particles to device memory
     free(dummy_p);                                                              // free intermediate particle vector (host memory)
   }
   
