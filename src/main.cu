@@ -17,8 +17,7 @@
 
 /************************ FUNCTION PROTOTIPES *************************/
 
-void fast_particle_to_grid_interpolation (double dy, int ncy, int *bookmark, particle **p);
-void particle_bining(double dy, int ncy, int *bookmark, particle **p);
+
 
 
 /*************************** MAIN FUNCTION ****************************/
