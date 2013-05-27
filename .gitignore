@@ -1,6 +1,7 @@
 *.[oa]
 *~
 *.swp
+*-swp
 bin/*
 !bin/README
 output/*

@@ -26,30 +26,32 @@ void particle_bining(double dy, int ncy, int *bookmark, particle **p);
 int main (int argc, const char* argv[])
 {
   // host variables definition
-  double *h_qi, *h_qe, *h_mi, *h_me, *h_kti, *h_kte;  //properties of particles (charge, mass and temperature of particle species)
-  double *h_n;                                        //plasma properties (plasma density)
-  double *h_phi_p;                                    //probe properties (probe potential)
-  double *h_Lx, *h_Ly, *h_dx, *h_dy, *h_dz;           //geometrical properties of simulation (simulation dimensions and spacial step)
-  double *h_epsilon;                                  //electromagnetic properties
-  double *h_rho, *h_phi, *h_Ex, *h_Ey;                //properties of mesh (charge density, potential and fields at point of the mesh)
-  double *h_t, *h_dt;                                 //timing variables (simulation time and time step)
-  particle *h_e, *h_i;                                //vector of electron and ions
-  unsigned int *h_bookmarke;                          //vector that stores the endpoint of each particle bin (electrons)
-  unsigned int *h_bookmarki;                          //vector that stores the endpoint of each particle bin (ions)
+  double qi = init_qi();                // |
+  double qe = init_qe();                // |
+  double mi = init_mi();                // |--> particle properties
+  double me = init_me();                // |
+  double kti = init_kti();              // |
+  double kte = init_kte();              // |
+  
+  double Lx = init_Lx();                // |
+  double Ly = init_Ly();                // |--> geometrical properties of simulation
+  double ds = init_ds();                // |
+  
+  double t = 0;                         // time of simulation
+  double dt = init_dt();                // time step
+  
+  double n = init_n();                  // plasma density
+  
+  double phi_p = init_phi_p();          // probe's potential
+  
+  double epsilon0 = init_epsilon0();    // electric permitivity
 
   // device variables definition
-  double *d_qi, *d_qe, *d_mi, *d_me, *d_kti, *d_kte;  //properties of particles (charge, mass and temperature of particle species)
-  double *d_n;                                        //plasma properties (plasma density)
-  double *d_phi_p;                                    //probe properties (probe potential)
-  double *d_Lx, *d_Ly, *d_dx, *d_dy, *d_dz;           //geometrical properties of simulation (simulation dimensions and spacial step)
-  double *d_epsilon;                                  //electromagnetic properties
-  double *d_rho, *d_phi, *d_Ex, *d_Ey;                //properties of mesh (charge density, potential and fields at point of the mesh)
-  double *d_t, *d_dt;                                 //timing variables (simulation time and time step)
-  particle *d_e, *d_i;                                //vector of electron and ions
-  unsigned int *d_bookmarke;                          //vector that stores the endpoint of each particle bin (electrons)
-  unsigned int *d_bookmarki;                          //vector that stores the endpoint of each particle bin (ions)
+  double *d_rho, *d_phi, *d_Ex, *d_Ey;  // properties of mesh (charge density, potential and fields at nodes of the mesh)
+  particle *d_e, *d_i;                  // vector of electron and ions
+  unsigned int *d_e_bm, *d_i_bm;        // vector that stores the bookmarks (beginning and end point) for each bin (electrons and ions)
 
-  initialize (&h_qi, &h_qe, &h_mi, &h_me, &h_kti, &h_kte, &h_phi_p, &h_n, &h_Lx, &h_Ly, &h_dx, &h_dy, &h_dz, &h_t, &h_dt, &h_epsilon, &h_rho, &h_phi, &h_Ex, &h_Ey, &h_e, &h_i, &h_bookmarke, &h_bookmarki, &d_qi, &d_qe, &d_mi, &d_me, &d_kti, &d_kte, &d_phi_p, &d_n, &d_Lx, &d_Ly, &d_dx, &d_dy, &d_dz, &d_t, &d_dt, &d_epsilon, &d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_bookmarke, &d_bookmarki);
-
+  initialize (&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
+  
   return 0;
 }

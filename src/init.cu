@@ -30,10 +30,10 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   const double ds = init_ds();                // spatial step size
   const double dt = init_dt();                // temporal step size
   const double epsilon0 = init_epsilon0();    // permittivity of free space
-  const int ncx = init_ncx();              // number of cells in the x dimension
-  const int ncy = init_ncy();              // number of cells in the y dimension
-  const int nnx = init_nnx();              // number of nodes in the x dimension
-  const int nny = init_nny();              // number of nodes in the y dimension
+  const int ncx = init_ncx();                 // number of cells in the x dimension
+  const int ncy = init_ncy();                 // number of cells in the y dimension
+  const int nnx = init_nnx();                 // number of nodes in the x dimension
+  const int nny = init_nny();                 // number of nodes in the y dimension
   
   
   int N;                                      // initial number of particle of each species
@@ -44,13 +44,14 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
   
   // device memory
+  /*(parameters of the function)*/
   
   /*----------------------------- function body -------------------------*/
   
   // initialize enviromental variables for gsl random number generator
   gsl_rng_env_setup();
   
-  // calculate initial number of particles and number of mesh points
+  // calculate initial number of particles
   N = int(Lx*ds*ds)*ncy;
 
   // allocate host memory for particle vectors
