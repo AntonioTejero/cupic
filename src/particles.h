@@ -13,6 +13,7 @@
 /****************************** HEADERS ******************************/
 
 #include "stdh.h"
+#include "init.h"
 #include "dynamic_sh_mem.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
@@ -22,7 +23,7 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void particle_mover(int nnx, int ncy, double ds, double dt, particle *elec, unsigned int *e_bm, double e_m, particle *ions, unsigned int *i_bm, double i_m, double *Ex, double *Ey); 
+void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm, double *Ex, double *Ey);
 
 // device kernels
 __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, unsigned int *g_bm, double *g_Ex, double *g_Ey, double *g_Fx, double *g_Fy);

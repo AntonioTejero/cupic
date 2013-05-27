@@ -82,23 +82,23 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy-1; i++)
   {
-    h_e_bm[2*i] = i*N/ncy;
-    h_e_bm[2*i+1] = ((i+1)*N/ncy)-1;
-    h_i_bm[2*i] = i*N/ncy;
-    h_i_bm[2*i+1] = ((i+1)*N/ncy)-1;
+    h_e_bm[2*i] = i*(N/ncy);
+    h_e_bm[2*i+1] = ((i+1)*(N/ncy))-1;
+    h_i_bm[2*i] = i*(N/ncy);
+    h_i_bm[2*i+1] = ((i+1)*(N/ncy))-1;
     for (int j = 0; j < N/ncy; j++)
     {
       // initialize ions
-      h_i[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*Lx;
-      h_i[(i*N/ncy)+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
-      h_i[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt(kti/mi));
-      h_i[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt(kti/mi));
+      h_i[(i*(N/ncy))+j].x = gsl_rng_uniform_pos(rng)*Lx;
+      h_i[(i*(N/ncy))+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
+      h_i[(i*(N/ncy))+j].vx = gsl_ran_gaussian(rng, sqrt(kti/mi));
+      h_i[(i*(N/ncy))+j].vy = gsl_ran_gaussian(rng, sqrt(kti/mi));
 
       // initialize electrons
-      h_e[(i*N/ncy)+j].x = gsl_rng_uniform_pos(rng)*Lx;
-      h_e[(i*N/ncy)+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
-      h_e[(i*N/ncy)+j].vx = gsl_ran_gaussian(rng, sqrt(kte/me));
-      h_e[(i*N/ncy)+j].vy = gsl_ran_gaussian(rng, sqrt(kte/me));
+      h_e[(i*(N/ncy))+j].x = gsl_rng_uniform_pos(rng)*Lx;
+      h_e[(i*(N/ncy))+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
+      h_e[(i*(N/ncy))+j].vx = gsl_ran_gaussian(rng, sqrt(kte/me));
+      h_e[(i*(N/ncy))+j].vy = gsl_ran_gaussian(rng, sqrt(kte/me));
     }
   }
 
@@ -427,3 +427,34 @@ int init_nny(void)
   return nny;
 }
 
+/**********************************************************/
+
+double init_dtin_i(void)
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double dtin_i;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  dtin_i = sqrt(2.0*PI*mi/kti)/(n*Lx*ds);
+  
+  return dtin_i;
+}
+
+/**********************************************************/
+
+double init_dtin_e(void)
+{
+  // function variables
+  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double dtin_e;
+  
+  // function body
+  
+  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  dtin_e = sqrt(2.0*PI*me/kte)/(n*Lx*ds);
+  
+  return dtin_e;
+}

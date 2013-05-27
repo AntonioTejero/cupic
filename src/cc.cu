@@ -12,34 +12,49 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cc (double t, double dt, double me, double mi, double kte, double kti, double Lx, double Ly, double ds, int nnx, int nny, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i, double *d_Ex, double *d_Ey)
+void cc (double t, unsigned int *d_e_bm, particle **e, unsigned int *d_i_bm, particle **i, double *d_Ex, double *d_Ey)
 {
   /*--------------------------- function variables -----------------------*/
 
   // host memory
-  static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);   //default random number generator (gsl)
+  static const double me = init_me();                     //
+  static const double mi = init_mi();                     // particle
+  static const double kti = init_kti();                   // properties
+  static const double kte = init_kte();                   //
   
-  static double dtin_e = 1.0e-1;            // time between electron insertions sqrt(2.0*PI*m_e/kT_e)/(n*Lx*dz)
-  static double dtin_i = 1.0e0;             // time between ion insertions
-  static double tin_e = dtin_e;             // time for next electron insertion
-  static double tin_i = dtin_i;             // time for next ion insertion
-  double fpt = t+dt;                        // future position time
-  double fvt = t+0.5*dt;                    // future velocity time
-  int in_e, in_i;                           // number of electron and ions added at plasma frontier
-  int out_e_l, out_e_r, out_i_l, out_i_r;   // number of electrons and ions withdrawn at probe (l) and at plasma frontier (r)
+  static const double dt = init_dt();                     // time step
+  static const double dtin_e = init_dtin_e();             // time between electron insertions sqrt(2.0*PI*m_e/kT_e)/(n*Lx*dz)
+  static const double dtin_i = init_dtin_i();             // time between ion insertions sqrt(2.0*PI*m_i/kT_i)/(n*Lx*dz)
   
-  unsigned int h_e_bookmark[2*ncy], h_i_bookmark[2*ncy];            // old particle bookmarks
-  unsigned int h_e_new_bookmark[2*ncy], h_i_new_bookmark[2*ncy];    // new particle bookmarks
-  int length;                                                       // length of particle vectors
+  static const double Lx = init_Lx();                     //
+  static const double Ly = init_Ly();                     // geometric properties of simulation
+  static const double ds = init_ds();                     //
   
-  double *h_Ex, *h_Ey;      // host memory for electric fields
-  double Epx, Epy;          // fields at particle position
-  int ic, jc;               // indices of particle cell
-  double distx, disty;      // distance from particle to nodes  
-  particle *dummy_p;        // dummy vector for particle storage
+  static const int nnx = init_nnx();                      // number of nodes in x dimension
+  static const int nny = init_nny();                      // number of nodes in y dimension
+  static const int ncy = init_ncx();                      // number of cells in y dimension
+  
+  static double tin_e = dtin_e;                           // time for next electron insertion
+  static double tin_i = dtin_i;                           // time for next ion insertion
+  double fpt = t+dt;                                      // future position time
+  double fvt = t+0.5*dt;                                  // future velocity time
+  int in_e, in_i;                                         // number of electron and ions added at plasma frontier
+  int out_e_l, out_e_r, out_i_l, out_i_r;                 // number of electrons and ions withdrawn at probe (l) and at plasma frontier (r)
+  
+  unsigned int h_e_bm[2*ncy], h_i_bm[2*ncy];              // old particle bookmarks
+  unsigned int h_e_new_bm[2*ncy], h_i_new_bm[2*ncy];      // new particle bookmarks
+  int length;                                             // length of particle vectors
+  
+  double *h_Ex, *h_Ey;                                    // host memory for electric fields
+  double Epx, Epy;                                        // fields at particle position
+  int ic, jc;                                             // indices of particle cell
+  double distx, disty;                                    // distance from particle to nodes  
+  particle *dummy_p;                                      // dummy vector for particle storage
+  
+  static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);  //default random number generator (gsl)
   
   // device memory
-  unsigned int *d_e_new_bookmark, *d_i_new_bookmark;    // new particle bookmarks (have to be allocated in device memory)
+  unsigned int *d_e_new_bookmark, *d_i_new_bookmark;      // new particle bookmarks (have to be allocated in device memory)
 
   /*----------------------------- function body -------------------------*/
 
@@ -50,14 +65,14 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
   cudaMalloc (&d_i_new_bookmark, 2*ncy*sizeof(unsigned int));  
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
-  particle_bining(Lx, ds, ncy, d_e_bookmark, d_e_new_bookmark, *e);
-  particle_bining(Lx, ds, ncy, d_i_bookmark, d_i_new_bookmark, *i);
+  particle_bining(Lx, ds, ncy, d_e_bm, d_e_new_bookmark, *e);
+  particle_bining(Lx, ds, ncy, d_i_bm, d_i_new_bookmark, *i);
   
   // copy new and old bookmark to host memory
-  cudaMemcpy (h_e_bookmark, d_e_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_bookmark, d_i_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_e_new_bookmark, d_e_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_new_bookmark, d_i_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_bm, d_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_bm, d_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_e_new_bm, d_e_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_i_new_bm, d_i_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   
   //---- absorbent/emitter contour conditions
   
@@ -66,26 +81,26 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
   if(tin_i < fpt) in_i = 1 + int((fpt-tin_i)/dtin_i);
   
   // calculate number of electrons and ions that flow out of the simulation
-  out_e_l = h_e_new_bookmark[0]-h_e_bookmark[0];
-  out_e_r = h_e_bookmark[2*ncy-1]-h_e_new_bookmark[2*ncy-1];
-  out_i_l = h_i_new_bookmark[0]-h_i_bookmark[0];
-  out_i_r = h_i_bookmark[2*ncy-1]-h_i_new_bookmark[2*ncy-1];
+  out_e_l = h_e_new_bm[0]-h_e_bm[0];
+  out_e_r = h_e_bm[2*ncy-1]-h_e_new_bm[2*ncy-1];
+  out_i_l = h_i_new_bm[0]-h_i_bm[0];
+  out_i_r = h_i_bm[2*ncy-1]-h_i_new_bm[2*ncy-1];
   
   //-- electrons
   if (out_e_l != 0 || out_e_r != 0 || in_e != 0)
   {
     // move particles to host dummy vector
-    length = h_e_new_bookmark[2*ncy-1]-h_e_new_bookmark[0]+1;                                       // calculate number of particles that remains
-    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                                   // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *e+h_e_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
-    cudaFree(*e);                                                                                   // free old particles device memory
+    length = h_e_new_bm[2*ncy-1]-h_e_new_bm[0]+1;                                             // calculate number of particles that remains
+    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                             // allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, *e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
+    cudaFree(*e);                                                                             // free old particles device memory
     
     // actualize bookmarks (left removed particles)
     if (out_e_l != 0)
     {
       for (int k = 0; k < 2*ncy; k++) 
       {
-        h_e_new_bookmark[k] -= out_e_l;
+        h_e_new_bm[k] -= out_e_l;
       }
     }
     
@@ -102,7 +117,7 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
       cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
       
       // create new particles
-      for (int k = h_e_new_bookmark[2*ncy-1]+1; k < length; k++) 
+      for (int k = h_e_new_bm[2*ncy-1]+1; k < length; k++) 
       {
         //initialize particles
         dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
@@ -144,7 +159,7 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
       free(h_Ey);
       
       // move end bookmark of last bin_bookmark (added particles)
-      h_e_new_bookmark[2*ncy-1] += in_e;
+      h_e_new_bm[2*ncy-1] += in_e;
     }
     
     // copy new particles to device memory
@@ -157,17 +172,17 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
   if (out_i_l != 0 || out_i_r != 0 || in_i != 0)
   {
     // move particles to host dummy vector
-    length = h_i_new_bookmark[2*ncy-1]-h_i_new_bookmark[0]+1;                                       // calculate number of particles that remains
-    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                                   // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *i+h_i_new_bookmark[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
-    cudaFree(*i);                                                                                   // free old particles device memory
+    length = h_i_new_bm[2*ncy-1]-h_i_new_bm[0]+1;                                             // calculate number of particles that remains
+    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                             // allocate intermediate particle vector in host memory
+    cudaMemcpy(dummy_p, *i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);   // move remaining particles to dummy vector (host memory)
+    cudaFree(*i);                                                                             // free old particles device memory
     
     // actualize bookmarks (left removed particles)
     if (out_i_l != 0)
     {
       for (int k = 0; k < 2*ncy; k++) 
       {
-        h_i_new_bookmark[k] -= out_i_l;
+        h_i_new_bm[k] -= out_i_l;
       }
     }
     
@@ -184,7 +199,7 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
       cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
       
       // create new particles
-      for (int k = h_i_new_bookmark[2*ncy-1]+1; k < length; k++) 
+      for (int k = h_i_new_bm[2*ncy-1]+1; k < length; k++) 
       {
         //initialize particles
         dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
@@ -226,7 +241,7 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
       free(h_Ey);
       
       // move end bookmark of last bin_bookmark (added particles)
-      h_i_new_bookmark[2*ncy-1] += in_i;
+      h_i_new_bm[2*ncy-1] += in_i;
     }
     
     // copy new particles to device memory
@@ -236,15 +251,15 @@ void cc (double t, double dt, double me, double mi, double kte, double kti, doub
   }
   
   // copy new bookmarks to device memory
-  cudaMemcpy (d_e_bookmark, h_e_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy (d_i_bookmark, h_i_new_bookmark, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (d_e_bm, h_e_new_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (d_i_bm, h_i_new_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
   
   return;
 }
 
 /**********************************************************/
 
-void particle_bining(double Lx, double ds, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
+inline void particle_bining(double Lx, double ds, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p)
 {
   /*--------------------------- function variables -----------------------*/
 

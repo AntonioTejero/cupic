@@ -35,6 +35,8 @@ double init_Lx(void);
 double init_Ly(void);
 double init_ds(void);
 double init_dt(void);
+double init_dtin_i(void);
+double init_dtin_e(void);
 double init_epsilon0(void);
 int init_ncx(void);
 int init_ncy(void);

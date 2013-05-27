@@ -12,11 +12,15 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm) 
+void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm) 
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
+  static const double ds = init_ds();   // spatial step
+  static const int ncx = init_ncx();    // number of cells in x dimension
+  static const int ncy = init_ncx();    // number of cells in y dimension
+  
   dim3 griddim, blockdim;
   size_t sh_mem_size;
   
@@ -29,27 +33,32 @@ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *e
   griddim = ncy;
   blockdim = CHARGE_DEP_BLOCK_DIM;
   
-  // define size of shared memory for charge_deposition kernel
+  // define size of shared memory for fast_particle_to_grid kernel
   sh_mem_size = 2*ncx*sizeof(double)+4*sizeof(unsigned int);
   
-  // call to charge_deposition kernel
-  charge_deposition<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, ds, rho, elec, e_bm, ions, i_bm);
+  // call to fast_particle_to_grid kernel
+  fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
   
   return;
 }
 
 /**********************************************************/
 
-void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilon0, double *rho, double *phi) 
+void poisson_solver(double max_error, double *d_rho, double *d_phi) 
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
+  static const double ds = init_ds();               // spatial step
+  static const int ncx = init_ncx();                // number of cells in x dimension
+  static const int ncy = init_ncx();                // number of cells in y dimension
+  static const double epsilon0 = init_epsilon0();   // electric permitivity of free space
+  
   dim3 blockdim, griddim;
   double *h_block_error;
   double error = max_error*10;
   size_t sh_mem_size;
-  int count = max(ncx, ncy);
+  int min_iteration = max(ncx, ncy);
   
   // device memory
   double *d_block_error;
@@ -71,10 +80,10 @@ void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilo
   cudaMalloc(&d_block_error, griddim.x*sizeof(double));
   
   // execute jacobi iterations until solved
-  while(count>=0 && error>=max_error)
+  while(min_iteration>=0 && error>=max_error)
   {
     // launch kernel for performing one jacobi iteration
-    jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, rho, phi, d_block_error);
+    jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, d_rho, d_phi, d_block_error);
     
     // copy device memory to host memory for analize errors
     cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
@@ -87,7 +96,7 @@ void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilo
     }
     
     // actualize counter
-    count--;
+    min_iteration--;
   }
   
   return;
@@ -95,11 +104,15 @@ void poisson_solver(int ncx, int ncy, double ds, double max_error, double epsilo
 
 /**********************************************************/
 
-void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *Ey) 
+void field_solver(double *d_phi, double *d_Ex, double *d_Ey) 
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
+  static const double ds = init_ds();   // spatial step
+  static const int ncx = init_ncx();    // number of cells in x dimension
+  static const int ncy = init_ncx();    // number of cells in y dimension
+  
   dim3 blockdim, griddim;
   size_t sh_mem_size;
   
@@ -116,7 +129,7 @@ void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *
   sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
   
   // launch kernel for performing the derivation of the potential to obtain the electric field
-  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, phi, Ex, Ey);
+  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, d_phi, d_Ex, d_Ey);
 
   return;
 }
@@ -127,7 +140,7 @@ void field_solver(int ncx, int ncy, double ds, double *phi, double *Ex, double *
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void charge_deposition(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
+__global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
 {
   /*--------------------------- kernel variables -----------------------*/
   

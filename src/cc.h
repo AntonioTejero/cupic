@@ -13,6 +13,7 @@
 /****************************** HEADERS ******************************/
 
 #include "stdh.h"
+#include "init.h"
 #include "gslrand.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
@@ -22,8 +23,8 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
- void cc (double t, double dt, double me, double mi, double kte, double kti, double Lx, double Ly, double ds, int nnx, int nny, int ncy, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i, double *d_Ex, double *d_Ey);
-void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
+void cc (double t, unsigned int *d_e_bookmark, particle **e, unsigned int *d_i_bookmark, particle **i, double *d_Ex, double *d_Ey);
+inline void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
 
 
 // device kernels
