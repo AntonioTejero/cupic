@@ -23,8 +23,8 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void charge_deposition(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm);
-void poisson_solver(double max_error, double *rho, double *phi);
+void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm);
+void poisson_solver(double max_error, double *d_rho, double *d_phi);
 void field_solver(double *d_phi, double *d_Ex, double *d_Ey);
 
 // device kernels
