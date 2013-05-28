@@ -18,8 +18,8 @@ void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, parti
   
   // host memory
   static const double ds = init_ds();   // spatial step
-  static const int ncx = init_ncx();    // number of cells in x dimension
-  static const int ncy = init_ncx();    // number of cells in y dimension
+  static const int nnx = init_nnx();    // number of nodes in x dimension
+  static const int ncy = init_ncy();    // number of cells in y dimension
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
@@ -34,10 +34,10 @@ void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, parti
   blockdim = CHARGE_DEP_BLOCK_DIM;
   
   // define size of shared memory for fast_particle_to_grid kernel
-  sh_mem_size = 2*ncx*sizeof(double)+4*sizeof(unsigned int);
+  sh_mem_size = 2*nnx*sizeof(double)+4*sizeof(unsigned int);
   
   // call to fast_particle_to_grid kernel
-  fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(ncx, ncy, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
+  fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(nnx, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
   
   return;
 }
@@ -50,15 +50,15 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   
   // host memory
   static const double ds = init_ds();               // spatial step
-  static const int ncx = init_ncx();                // number of cells in x dimension
-  static const int ncy = init_ncx();                // number of cells in y dimension
+  static const int nnx = init_nnx();                // number of nodes in x dimension
+  static const int nny = init_nny();                // number of nodes in y dimension
   static const double epsilon0 = init_epsilon0();   // electric permitivity of free space
   
   dim3 blockdim, griddim;
   double *h_block_error;
   double error = max_error*10;
   size_t sh_mem_size;
-  int min_iteration = max(ncx, ncy);
+  int min_iteration = max(nnx, nny);
   
   // device memory
   double *d_block_error;
@@ -66,9 +66,9 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   /*----------------------------- function body -------------------------*/
   
   // set dimensions of grid of blocks and blocks of threads for jacobi kernel
-  blockdim.x = ncx;
-  blockdim.y = 1024/ncx;
-  griddim = (ncy-2)/blockdim.y;
+  blockdim.x = nnx;
+  blockdim.y = 1024/nnx;
+  griddim = (nny-2)/blockdim.y;
   
   // define size of shared memory for jacobi_iteration kernel
   sh_mem_size = (2*blockdim.x*(blockdim.y+1)+blockdim.y)*sizeof(double);
@@ -110,8 +110,8 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
   
   // host memory
   static const double ds = init_ds();   // spatial step
-  static const int ncx = init_ncx();    // number of cells in x dimension
-  static const int ncy = init_ncx();    // number of cells in y dimension
+  static const int nnx = init_nnx();    // number of nodes in x dimension
+  static const int nny = init_nny();    // number of nodes in y dimension
   
   dim3 blockdim, griddim;
   size_t sh_mem_size;
@@ -121,15 +121,15 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
   /*----------------------------- function body -------------------------*/
   
   // set dimensions of grid of blocks and blocks of threads for jacobi kernel
-  blockdim.x = ncx;
-  blockdim.y = 1024/ncx;
-  griddim = (ncy-2)/blockdim.y;
+  blockdim.x = nnx;
+  blockdim.y = 1024/nnx;
+  griddim = (nny-2)/blockdim.y;
   
   // define size of shared memory for jacobi_iteration kernel
   sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
   
   // launch kernel for performing the derivation of the potential to obtain the electric field
-  field_derivation<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, d_phi, d_Ex, d_Ey);
+  field_derivation<<<griddim, blockdim, sh_mem_size>>>(ds, d_phi, d_Ex, d_Ey);
 
   return;
 }
@@ -140,14 +140,14 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
+__global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
   
   double *sh_partial_rho = (double *) sh_mem;                       //
-  unsigned int *sh_e_bm = (unsigned int *) &sh_partial_rho[2*ncx];  // manually set up shared memory variables inside whole shared memory
+  unsigned int *sh_e_bm = (unsigned int *) &sh_partial_rho[2*nnx];  // manually set up shared memory variables inside whole shared memory
   unsigned int *sh_i_bm = (unsigned int *) &sh_e_bm[2];             //
   
   // kernel registers
@@ -161,15 +161,15 @@ __global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, 
   //---- initialize shared memory variables
   
   // initialize charge density in shared memory to 0.0
-  if (blockDim.x >= 2*ncx)
+  if (blockDim.x >= 2*nnx)
   {
-    if (threadIdx.x < 2*ncx)
+    if (threadIdx.x < 2*nnx)
     {
       sh_partial_rho[threadIdx.x] = 0.0;
     }
   } else
   {
-    for (int i = threadIdx.x; i < 2*ncx; i+=blockDim.x)
+    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
     {
       sh_partial_rho[i] = 0.0;
     }
@@ -200,8 +200,8 @@ __global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, 
     // acumulate charge in partial rho
     atomicSub(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
     atomicSub(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
-    atomicSub(sh_partial_rho+ic+ncx, (1.0-distx)*disty);    //top left vertex
-    atomicSub(sh_partial_rho+ic+ncx+1, distx*disty);        //top right vertex
+    atomicSub(sh_partial_rho+ic+nnx, (1.0-distx)*disty);    //top left vertex
+    atomicSub(sh_partial_rho+ic+nnx+1, distx*disty);        //top right vertex
   }
   
   // ion deposition
@@ -218,8 +218,8 @@ __global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, 
     // acumulate charge in partial rho
     atomicAdd(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
     atomicAdd(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
-    atomicAdd(sh_partial_rho+ic+ncx, (1.0-distx)*disty);    //top left vertex
-    atomicAdd(sh_partial_rho+ic+ncx+1, distx*disty);        //top right vertex
+    atomicAdd(sh_partial_rho+ic+nnx, (1.0-distx)*disty);    //top left vertex
+    atomicAdd(sh_partial_rho+ic+nnx+1, distx*disty);        //top right vertex
   }
   __syncthreads();
   
@@ -227,24 +227,24 @@ __global__ void fast_particle_to_grid(int ncx, int ncy, double ds, double *rho, 
   
   if (threadIdx.x < 2)
   {
-    sh_partial_rho[threadIdx.x*ncx] += sh_partial_rho[(threadIdx.x+1)*ncx-1];
-    sh_partial_rho[(threadIdx.x+1)*ncx-1] = sh_partial_rho[threadIdx.x*ncx];
+    sh_partial_rho[threadIdx.x*nnx] += sh_partial_rho[(threadIdx.x+1)*nnx-1];
+    sh_partial_rho[(threadIdx.x+1)*nnx-1] = sh_partial_rho[threadIdx.x*nnx];
   }
   __syncthreads();
   
   //---- acumulation of charge
   
-  if (blockDim.x >= 2*ncx)
+  if (blockDim.x >= 2*nnx)
   {
-    if (threadIdx.x < 2*ncx)
+    if (threadIdx.x < 2*nnx)
     {
-      atomicAdd(rho+blockIdx.x*ncx+threadIdx.x, sh_partial_rho[threadIdx.x]);
+      atomicAdd(rho+blockIdx.x*nnx+threadIdx.x, sh_partial_rho[threadIdx.x]);
     }
   } else
   {
-    for (int i = threadIdx.x; i < 2*ncx; i+=blockDim.x)
+    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
     {
-      atomicAdd(rho+blockIdx.x*ncx+i, sh_partial_rho[i]);
+      atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
     }
   }
   
@@ -341,7 +341,7 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
 
 /**********************************************************/
 
-__global__ void field_derivation (dim3 blockdim, double ds, double *phi_global, double *Ex_global, double *Ey_global)
+__global__ void field_derivation (double ds, double *phi_global, double *Ex_global, double *Ey_global)
 {
   /*---------------------------- kernel variables ------------------------*/
   

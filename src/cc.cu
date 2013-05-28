@@ -121,7 +121,7 @@ void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, p
       {
         //initialize particles
         dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
-        dummy_p[k].y = Ly;
+        dummy_p[k].y = Ly;         
         dummy_p[k].vx = gsl_ran_gaussian(rng, sqrt(kte/me));
         dummy_p[k].vy = gsl_ran_rayleigh(rng, sqrt(kte/me));
         
@@ -146,7 +146,7 @@ void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, p
         
         // simple push
         dummy_p[k].x += (fpt-tin_e)*dummy_p[k].vx;
-        dummy_p[k].y += (fpt-tin_e)*dummy_p[k].vy;
+        dummy_p[k].y += (fpt-tin_e)*dummy_p[k].vy;  // comprobar que no atraviesa una celda
         dummy_p[k].vx -= (fvt-tin_e)*Epx/me;
         dummy_p[k].vy -= (fvt-tin_e)*Epy/me;
         
@@ -228,7 +228,7 @@ void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, p
         
         // simple push
         dummy_p[k].x += (fpt-tin_i)*dummy_p[k].vx;
-        dummy_p[k].y += (fpt-tin_i)*dummy_p[k].vy;
+        dummy_p[k].y += (fpt-tin_i)*dummy_p[k].vy; // comprobar que no atraviesa una celda
         dummy_p[k].vx += (fvt-tin_i)*Epx/mi;
         dummy_p[k].vy += (fvt-tin_i)*Epy/mi;
         
