@@ -200,7 +200,7 @@ void read_input_file (double *qi, double *qe, double *mi, double *me, double *kt
     myfile.getline (line, 80);
     sscanf (line, "Ly = %lf \n", Ly);
     myfile.getline (line, 80);
-    sscanf (line, "dx = %lf \n", ds);
+    sscanf (line, "ds = %lf \n", ds);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
