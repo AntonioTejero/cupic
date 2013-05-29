@@ -19,13 +19,15 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   // host memory
   static const double me = init_me();     // electron's mass
   static const double mi = init_mi();     // ion's mass
+  static const double qe = init_qe();     // electron's charge
+  static const double qi = init_qi();     // ions's charge
   static const double ds = init_ds();     // spatial step
   static const double dt = init_dt();     // time step
   static const int nnx = init_nnx();      // number of nodes in x dimension
-  static const int ncy = init_ncx();      // number of cells in y dimension
+  static const int ncy = init_ncy();      // number of cells in y dimension
   
-  unsigned int *h_bm;       // host vector for bookmarks
-  int np;                   // number of particles
+  unsigned int h_bm[2*ncy];               // host vector for bookmarks
+  int np;                                 // number of particles
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
@@ -45,7 +47,6 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   //---- move electrons
   
   // evaluate number of particles to move (electrons)
-  h_bm = (unsigned int *) malloc(2*ncy*sizeof(unsigned int));
   cudaMemcpy(h_bm, d_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   np = h_bm[2*ncy-1]-h_bm[0];
   
@@ -54,7 +55,7 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   cudaMalloc(&Fy, np*sizeof(double));
   
   // call to fast_grid_to_particle kernel (electrons)
-  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, d_e, d_e_bm, Ex, Ey, Fx, Fy);
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qe, ds, d_e, d_e_bm, Ex, Ey, Fx, Fy);
   
   // call to leap_frog_step kernel (electrons)
   leap_frog_step<<<griddim, blockdim>>>(dt, me, d_e, d_e_bm, Fx, Fy);
@@ -66,7 +67,6 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   //---- move ions  
   
   // evaluate number of particles to move (ions)
-  cudaMalloc(&h_bm, 2*ncy*sizeof(unsigned int));
   cudaMemcpy(h_bm, d_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   np = h_bm[2*ncy-1]-h_bm[0];
   
@@ -75,7 +75,7 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   cudaMalloc(&Fy, np*sizeof(double));
   
   // call to fast_grid_to_particle kernel (ions)
-  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, d_i, d_i_bm, Ex, Ey, Fx, Fy);
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qi, ds, d_i, d_i_bm, Ex, Ey, Fx, Fy);
   
   // call to leap_frog_step kernel (ions)
   leap_frog_step<<<griddim, blockdim>>>(dt, mi, d_i, d_i_bm, Fx, Fy);
