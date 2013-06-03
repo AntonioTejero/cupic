@@ -38,7 +38,8 @@ void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, p
   static double tin_i = dtin_i;                           // time for next ion insertion
   double fpt = t+dt;                                      // future position time
   double fvt = t+0.5*dt;                                  // future velocity time
-  int in_e, in_i;                                         // number of electron and ions added at plasma frontier
+  int in_e = 0;                                           // number of electron added at plasma frontier
+  int in_i = 0;                                           // number of ions added at plasma frontier
   int out_e_l, out_e_r, out_i_l, out_i_r;                 // number of electrons and ions withdrawn at probe (l) and at plasma frontier (r)
   
   unsigned int h_e_bm[2*ncy], h_i_bm[2*ncy];              // old particle bookmarks
