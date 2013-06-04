@@ -117,8 +117,8 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   // copy particle and bookmark vectors from host to device memory
   cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_i_bm, h_i_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e_bm, h_e_bm, 2*(ncy-1)*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
   // copy potential from host to device memory
   cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
