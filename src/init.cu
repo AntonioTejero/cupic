@@ -83,7 +83,7 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   cudaMalloc (d_Ey, nnx*nny*sizeof(double));
 
   // initialize particle vectors and bookmarks (host memory)
-  for (int i = 0; i < ncy-1; i++)
+  for (int i = 0; i < ncy; i++)
   {
     h_e_bm[2*i] = i*(N/ncy);
     h_e_bm[2*i+1] = ((i+1)*(N/ncy))-1;
