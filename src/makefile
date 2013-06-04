@@ -18,17 +18,19 @@ CUPIC : $(OBJECTS)
 main.o : main.cu 
 	$(NVCC) $(NVCCFLAGS) -dc main.cu -o main.o 
 
-init.o : init.cu
+init.o : init.cu init.h
 	$(NVCC) $(NVCCFLAGS) -dc init.cu -o init.o 
 
-cc.o : cc.cu
+cc.o : cc.cu cc.h
 	$(NVCC) $(NVCCFLAGS) -dc cc.cu -o cc.o
 	
-mesh.o : mesh.cu
+mesh.o : mesh.cu mesh.h
 	$(NVCC) $(NVCCFLAGS) -dc mesh.cu -o mesh.o
 	
-particles.o : particles.cu
+particles.o : particles.cu particles.h
 	$(NVCC) $(NVCCFLAGS) -dc particles.cu -o particles.o
+	
+diagnostic.o : diagnostic.cu diagnostic.h
 	
 .PHONY : clean open lines
 
@@ -37,7 +39,7 @@ clean :
 	clear
 
 open :
-	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu particles.h particles.cu makefile &
+	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu particles.h particles.cu diagnostic.h diagnostic.cu makefile &
 	
 lines :
 	git ls-files | xargs wc -l

@@ -14,6 +14,7 @@
 #include "cc.h"
 #include "mesh.h"
 #include "particles.h"
+#include "diagnostic.h"
 
 /************************ FUNCTION PROTOTIPES *************************/
 
@@ -61,7 +62,7 @@ int main (int argc, const char* argv[])
     
     cout << "3" << endl;
     // solve poisson equation
-    poisson_solver(1.0e-12, d_rho, d_phi);
+    poisson_solver(1.0e-8, d_rho, d_phi);
     
     cout << "4" << endl;
     // derive electric fields from potential
@@ -74,6 +75,7 @@ int main (int argc, const char* argv[])
     cout << "6" << endl;
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
+    cout << "--------------------" << i << endl;
   }
   
   cout << "7" << endl;

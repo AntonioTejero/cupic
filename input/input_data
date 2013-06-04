@@ -10,11 +10,11 @@ kT_e = 1.0;
 phi_p = -1.0e1;
 
 #plasma properies
-n = 1.0e5;
+n = 1.0e6;
 
 #mesh properties of the simulation
-Lx = 5.12e0;
-Ly = 1.026e1;
+Lx = 5.11e0;
+Ly = 1.025e1;
 ds = 1.0e-2;
 
 #time variables
