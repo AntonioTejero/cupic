@@ -55,7 +55,6 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   
   // calculate initial number of particles
   N = int(n*Lx*ds*ds)*ncy;
-  cout << "N = " << N << endl;
 
   // allocate host memory for particle vectors
   h_i = (particle*) malloc(N*sizeof(particle));

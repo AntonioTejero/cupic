@@ -32,7 +32,7 @@ void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, p
   
   static const int nnx = init_nnx();                      // number of nodes in x dimension
   static const int nny = init_nny();                      // number of nodes in y dimension
-  static const int ncy = init_ncx();                      // number of cells in y dimension
+  static const int ncy = init_ncy();                      // number of cells in y dimension
   
   static double tin_e = dtin_e;                           // time for next electron insertion
   static double tin_i = dtin_i;                           // time for next ion insertion
