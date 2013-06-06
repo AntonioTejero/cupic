@@ -26,25 +26,8 @@
 int main (int argc, const char* argv[])
 {
   // host variables definition
-  double qi = init_qi();                // |
-  double qe = init_qe();                // |
-  double mi = init_mi();                // |--> particle properties
-  double me = init_me();                // |
-  double kti = init_kti();              // |
-  double kte = init_kte();              // |
-  
-  double Lx = init_Lx();                // |
-  double Ly = init_Ly();                // |--> geometrical properties of simulation
-  double ds = init_ds();                // |
-  
   double t = 0;                         // time of simulation
   double dt = init_dt();                // time step
-  
-  double n = init_n();                  // plasma density
-  
-  double phi_p = init_phi_p();          // probe's potential
-  
-  double epsilon0 = init_epsilon0();    // electric permitivity
 
   // device variables definition
   double *d_rho, *d_phi, *d_Ex, *d_Ey;  // properties of mesh (charge density, potential and fields at nodes of the mesh)
