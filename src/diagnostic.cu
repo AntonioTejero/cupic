@@ -19,7 +19,7 @@ unsigned int number_of_particles(unsigned int *d_bm)
   // host memory
   static const int ncy = init_ncy();      // number of cells in y dimension
   
-  unsigned int num_particles;
+  unsigned int h_bm[2*ncy];
   
   // device memory
   
@@ -27,11 +27,9 @@ unsigned int number_of_particles(unsigned int *d_bm)
   /*----------------------------- function body -------------------------*/
   
   // copy vector of bookmarks from device to host
-  cudaMemcpy (&num_particles, d_bm+2*ncy-1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
   
-  num_particles += 1;
-  
-  return num_particles;
+  return h_bm[2*ncy-1]-h_bm[0]+1;
 }
 
 

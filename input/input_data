@@ -10,7 +10,7 @@ kT_e = 1.0;
 phi_p = -1.0e1;
 
 #plasma properies
-n = 1.0e6;
+n = 1.0e7;
 
 #mesh properties of the simulation
 Lx = 5.11e0;

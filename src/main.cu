@@ -53,10 +53,8 @@ int main (int argc, const char* argv[])
 
   initialize (&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
   cout << "1" << endl;
-  cout << "number of electrons: " << number_of_particles(d_e_bm) << endl;
-  cout << "number of ions: " << number_of_particles(d_e_bm) << endl;
-  
-  for (int i = 0; i < 10; i++, t += dt) 
+
+  for (int i = 0; i < 1; i++, t += dt) 
   {
     cout << "2" << endl;
     // deposit charge into the mesh nodes
