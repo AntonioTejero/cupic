@@ -24,6 +24,7 @@
 // host function
 
 unsigned int number_of_particles(unsigned int *d_bm);
+void snapshot(particle *d_p, unsigned int * d_bm, string filename);
 
 // device kernels
 

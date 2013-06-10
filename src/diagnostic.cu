@@ -35,10 +35,45 @@ unsigned int number_of_particles(unsigned int *d_bm)
 
 /**********************************************************/
 
-
+void snapshot(particle *d_p, unsigned int * d_bm, string filename) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory  
+  particle *h_p;
+  int N;
+  ofstream file;
+  
+  // device memory
+  
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // evaluate number of particles in the vector
+  N = number_of_particles(d_bm);
+  
+  // allocate host memory for particle vector
+  h_p = (particle *) malloc(N*sizeof(particle));
+  
+  // copy particle vector from device to host
+  cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
+  
+  // save snapshot to file
+  filename.insert(0, "../output/");
+  filename.append(".dat");
+  file.open(filename.c_str());
+  
+  for (int i = 0; i < N; i++) 
+  {
+    file << i << " " << h_p[i].x << " " << h_p[i].y << " " << h_p[i].vx << " " << h_p[i].vy << endl;
+  }
+  
+  file.close();
+  
+  return;
+}
 
 /**********************************************************/
-
 
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
