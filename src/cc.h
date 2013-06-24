@@ -15,6 +15,7 @@
 #include "stdh.h"
 #include "init.h"
 #include "gslrand.h"
+#include "diagnostic.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
@@ -23,12 +24,12 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void cc (double t, unsigned int *d_e_bm, particle **d_e, unsigned int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey);
-inline void particle_bining(double Lx, double dy, int ncy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
+void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey);
+void particle_bining(double Lx, double dy, int ncy, int *bm, int *new_bm, particle *p);
 
 
 // device kernels
-__global__ void particle_defragmentation(double Lx, double dy, unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
-__global__ void particle_rebracketing(unsigned int *bookmark, unsigned int *new_bookmark, particle *p);
+__global__ void particle_defragmentation(double Lx, double dy, int *bm, int *new_bm, particle *p);
+__global__ void particle_rebracketing(int *bm, int *new_bm, particle *p);
 
-#endif
+#endif 

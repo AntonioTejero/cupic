@@ -23,8 +23,10 @@
 
 // host function
 
-unsigned int number_of_particles(unsigned int *d_bm);
-void snapshot(particle *d_p, unsigned int * d_bm, string filename);
+int number_of_particles(int *d_bm);
+void snapshot(particle *d_p, int * d_bm, string filename);
+void show_bm(int * d_bm);
+void save_bins(int * d_bm, particle *d_p, string filename);
 
 // device kernels
 

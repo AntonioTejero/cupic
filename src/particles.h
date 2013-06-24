@@ -23,11 +23,11 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm, double *Ex, double *Ey);
+void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, double *Ex, double *Ey);
 
 // device kernels
-__global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, unsigned int *g_bm, double *g_Ex, double *g_Ey, double *g_Fx, double *g_Fy);
-__global__ void leap_frog_step(double dt, double m, particle *g_p, unsigned int *g_bm, double *g_Fx, double *g_Fy);
+__global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, double *g_Fx, double *g_Fy);
+__global__ void leap_frog_step(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy);
 
 // device functions 
 

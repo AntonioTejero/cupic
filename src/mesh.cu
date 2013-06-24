@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm) 
+void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm) 
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -34,7 +34,7 @@ void charge_deposition(double *d_rho, particle *d_e, unsigned int *d_e_bm, parti
   blockdim = CHARGE_DEP_BLOCK_DIM;
   
   // define size of shared memory for fast_particle_to_grid kernel
-  sh_mem_size = 2*nnx*sizeof(double)+4*sizeof(unsigned int);
+  sh_mem_size = 2*nnx*sizeof(double)+4*sizeof(int);
   
   // call to fast_particle_to_grid kernel
   fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(nnx, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
@@ -140,15 +140,15 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle *elec, unsigned int *e_bm, particle *ions, unsigned int *i_bm)
+__global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle *elec, int *e_bm, particle *ions, int *i_bm)
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
   
-  double *sh_partial_rho = (double *) sh_mem;                       //
-  unsigned int *sh_e_bm = (unsigned int *) &sh_partial_rho[2*nnx];  // manually set up shared memory variables inside whole shared memory
-  unsigned int *sh_i_bm = (unsigned int *) &sh_e_bm[2];             //
+  double *sh_partial_rho = (double *) sh_mem;     //
+  int *sh_e_bm = (int *) &sh_partial_rho[2*nnx];  // manually set up shared memory variables inside whole shared memory
+  int *sh_i_bm = (int *) &sh_e_bm[2];             //
   
   // kernel registers
   particle p;

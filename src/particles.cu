@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned int *d_i_bm, double *Ex, double *Ey) 
+void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, double *Ex, double *Ey) 
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -26,7 +26,7 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   static const int nnx = init_nnx();      // number of nodes in x dimension
   static const int ncy = init_ncy();      // number of cells in y dimension
   
-  unsigned int h_bm[2*ncy];               // host vector for bookmarks
+  int h_bm[2*ncy];                        // host vector for bookmarks
   int np;                                 // number of particles
   
   dim3 griddim, blockdim;
@@ -42,12 +42,12 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   blockdim = PAR_MOV_BLOCK_DIM;
   
   // define size of shared memory for fast_grid_to_particle kernel
-  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(unsigned int);
+  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(int);
   
   //---- move electrons
   
   // evaluate number of particles to move (electrons)
-  cudaMemcpy(h_bm, d_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
   np = h_bm[2*ncy-1]-h_bm[0];
   
   // allocate device memory for particle forces (electrons)
@@ -67,7 +67,7 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
   //---- move ions  
   
   // evaluate number of particles to move (ions)
-  cudaMemcpy(h_bm, d_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
   np = h_bm[2*ncy-1]-h_bm[0];
   
   // allocate device memory for particle forces (ions)
@@ -93,15 +93,15 @@ void particle_mover(particle *d_e, unsigned int *d_e_bm, particle *d_i, unsigned
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, unsigned int *g_bm, double *g_Ex, double *g_Ey, double *g_Fx, double *g_Fy) 
+__global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, double *g_Fx, double *g_Fy) 
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
   
-  double *sh_Ex = (double *) sh_mem;                      //
-  double *sh_Ey = (double *) &sh_Ex[2*nnx];               // manually set up shared memory variables inside whole shared memory
-  unsigned int *sh_bm = (unsigned int *) &sh_Ey[2*nnx];   //
+  double *sh_Ex = (double *) sh_mem;          //
+  double *sh_Ey = (double *) &sh_Ex[2*nnx];   // manually set up shared memory variables inside whole shared memory
+  int *sh_bm = (int *) &sh_Ey[2*nnx];         //
   
   // kernel registers
   particle p;
@@ -189,12 +189,12 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
 
 /**********************************************************/
 
-__global__ void leap_frog_step(double dt, double m, particle *g_p, unsigned int *g_bm, double *g_Fx, double *g_Fy) 
+__global__ void leap_frog_step(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy) 
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  __shared__ unsigned int sh_bm[2];   // manually set up shared memory variables inside whole shared memory
+  __shared__ int sh_bm[2];   // manually set up shared memory variables inside whole shared memory
   
   // kernel registers
   particle p;

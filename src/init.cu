@@ -12,7 +12,7 @@
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
-void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, unsigned int **d_e_bm, unsigned int **d_i_bm)
+void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -37,7 +37,7 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   
   int N;                                      // initial number of particle of each species
   particle *h_i, *h_e;                        // host vectors of particles
-  unsigned int *h_e_bm, *h_i_bm;              // host vectors for bookmarks
+  int *h_e_bm, *h_i_bm;              // host vectors for bookmarks
   double *h_phi;                              // host vector for potentials
   
   dim3 griddim, blockdim;
@@ -61,8 +61,8 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   h_e = (particle*) malloc(N*sizeof(particle));
 
   // allocate host memory for bookmark vectors
-  h_e_bm = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
-  h_i_bm = (unsigned int*) malloc(2*ncy*sizeof(unsigned int));
+  h_e_bm = (int*) malloc(2*ncy*sizeof(int));
+  h_i_bm = (int*) malloc(2*ncy*sizeof(int));
 
   // allocate host memory for potential
   h_phi = (double*) malloc(nnx*nny*sizeof(double));
@@ -72,8 +72,8 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   cudaMalloc (d_e, N*sizeof(particle));
 
   // allocate device memory for bookmark vectors
-  cudaMalloc (d_e_bm, 2*ncy*sizeof(unsigned int));
-  cudaMalloc (d_i_bm, 2*ncy*sizeof(unsigned int));
+  cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
+  cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
 
   // allocate device memory for mesh variables
   cudaMalloc (d_rho, nnx*nny*sizeof(double));
@@ -116,8 +116,8 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   // copy particle and bookmark vectors from host to device memory
   cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
   cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
 
   // copy potential from host to device memory
   cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
@@ -138,7 +138,7 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   // call kernels to calculate particle forces and fix their velocities
   griddim = ncy;                                                  // set dimensions of grid of blocks for fast_grid_to_particle and fix_velocity kernel
   blockdim = PAR_MOV_BLOCK_DIM;                                   // set dimensions of block of threads for fast_grid_to_particle and fix_velocity kernel
-  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(unsigned int);    // define size of shared memory for fast_grid_to_particle kernel
+  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(int);    // define size of shared memory for fast_grid_to_particle kernel
   
   // electrons
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);    // calculate forces
@@ -502,12 +502,12 @@ double init_dtin_e(void)
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void fix_velocity(double dt, double m, particle *g_p, unsigned int *g_bm, double *g_Fx, double *g_Fy) 
+__global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy) 
 {
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  __shared__ unsigned int sh_bm[2];   // manually set up shared memory variables inside whole shared memory
+  __shared__ int sh_bm[2];   // manually set up shared memory variables inside whole shared memory
   
   // kernel registers
   particle p;
