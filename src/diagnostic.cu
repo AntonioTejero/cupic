@@ -35,7 +35,7 @@ int number_of_particles(int *d_bm)
 
 /**********************************************************/
 
-void snapshot(particle *d_p, int * d_bm, string filename) 
+void particles_snapshot(particle *d_p, int * d_bm, string filename) 
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -70,6 +70,53 @@ void snapshot(particle *d_p, int * d_bm, string filename)
   
   file.close();
   
+  // free host memory
+  free(h_p);
+  
+  return;
+}
+
+/**********************************************************/
+
+void mesh_snapshot(double *d_m, string filename) 
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory 
+  static const int nnx = init_nnx();
+  static const int nny = init_nny();
+  double *h_m;
+  ofstream file;
+  
+  // device memory
+  
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // allocate host memory for mesh vector
+  h_m = (double *) malloc(nnx*nny*sizeof(double));
+  
+  // copy particle vector from device to host
+  cudaMemcpy (h_m, d_m, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+  
+  // save snapshot to file
+  filename.insert(0, "../output/");
+  filename.append(".dat");
+  file.open(filename.c_str());
+  
+  for (int i = 0; i < nnx; i++) 
+  {
+    for (int j = 0; j < nny; j++) 
+    {
+      file << i << " " << j << " " << h_m[i+j*nnx] << endl;
+    }
+  }
+  
+  file.close();
+  
+  // free host memory
+  free(h_m);
+  
   return;
 }
 
@@ -90,7 +137,7 @@ void show_bm(int * d_bm)
   
   // copy vector of bookmarks from device to host
   cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-
+  
   // print bookmarks
   cout << "| ";
   for (int i = 0; i<2*ncy; i+=2)
@@ -98,7 +145,7 @@ void show_bm(int * d_bm)
     cout << h_bm[i] << "," << h_bm[i+1] << " | ";
   }
   cout << endl;
-
+  
   return;
 }
 
