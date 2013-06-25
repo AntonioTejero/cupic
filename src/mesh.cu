@@ -19,7 +19,9 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   // host memory
   static const double ds = init_ds();   // spatial step
   static const int nnx = init_nnx();    // number of nodes in x dimension
+  static const int nny = init_nny();    // number of nodes in y dimension
   static const int ncy = init_ncy();    // number of cells in y dimension
+  double zeros[nnx*nny];
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
@@ -28,6 +30,13 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   
   
   /*----------------------------- function body -------------------------*/
+  
+  // initialize device memory to zeros
+  for (int i = 0; i < nnx*nny; i++) 
+  {
+    zeros[i] = 0.0;
+  }
+  cudaMemcpy(d_rho, zeros, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
   
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
@@ -145,7 +154,6 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  
   double *sh_partial_rho = (double *) sh_mem;     //
   int *sh_e_bm = (int *) &sh_partial_rho[2*nnx];  // manually set up shared memory variables inside whole shared memory
   int *sh_i_bm = (int *) &sh_e_bm[2];             //
@@ -198,10 +206,10 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
     distx = fabs(double(ic*ds)-p.x)/ds;
     disty = fabs(double(jc*ds)-p.y)/ds;
     // acumulate charge in partial rho
-    atomicSub(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
-    atomicSub(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
-    atomicSub(sh_partial_rho+ic+nnx, (1.0-distx)*disty);    //top left vertex
-    atomicSub(sh_partial_rho+ic+nnx+1, distx*disty);        //top right vertex
+    atomicAdd(sh_partial_rho+ic, -(1.0-distx)*(1.0-disty));  //down left vertex
+    atomicAdd(sh_partial_rho+ic+1, -distx*(1.0-disty));      //down right vertex
+    atomicAdd(sh_partial_rho+ic+nnx, -(1.0-distx)*disty);    //top left vertex
+    atomicAdd(sh_partial_rho+ic+nnx+1, -distx*disty);        //top right vertex
   }
   
   // ion deposition
