@@ -21,7 +21,7 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host functions
-void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm);
+void init_sim (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm);
 
 void read_input_file (double *qi, double *qe, double *mi, double *me, double *kti, double *kte, double *phi_p, double *n, double *Lx, double *Ly, double *ds, double *dt, double *epsilon0);
 

@@ -12,41 +12,37 @@
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
-void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm)
+void init_sim (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm)
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
-  const double qi = init_qi();                // ion's charge
-  const double qe = init_qe();                // electron's charge
-  const double mi = init_mi();                // ion's mass
-  const double me = init_me();                // electron's mass
-  const double kti = init_kti();              // ion's thermal energy
-  const double kte = init_kte();              // electron's thermal energy
-  const double phi_p = init_phi_p();          // probe's potential
-  const double n = init_n();                  // plasma density
-  const double Lx = init_Lx();                // size of the simulation in the x dimension (ccc)
-  const double Ly = init_Ly();                // size of the simulation in the y dimension 
-  const double ds = init_ds();                // spatial step size
-  const double dt = init_dt();                // temporal step size
-  const double epsilon0 = init_epsilon0();    // permittivity of free space
-  const int ncx = init_ncx();                 // number of cells in the x dimension
-  const int ncy = init_ncy();                 // number of cells in the y dimension
-  const int nnx = init_nnx();                 // number of nodes in the x dimension
-  const int nny = init_nny();                 // number of nodes in the y dimension
+  const double mi = init_mi();          // ion's mass
+  const double me = init_me();          // electron's mass
+  const double kti = init_kti();        // ion's thermal energy
+  const double kte = init_kte();        // electron's thermal energy
+  const double phi_p = init_phi_p();    // probe's potential
+  const double n = init_n();            // plasma density
+  const double Lx = init_Lx();          // size of the simulation in the x dimension (ccc)
+  const double Ly = init_Ly();          // size of the simulation in the y dimension 
+  const double ds = init_ds();          // spatial step size
+  const double dt = init_dt();          // temporal step size
+  const int ncy = init_ncy();           // number of cells in the y dimension
+  const int nnx = init_nnx();           // number of nodes in the x dimension
+  const int nny = init_nny();           // number of nodes in the y dimension
   
-  int N;                                      // initial number of particle of each species
-  particle *h_i, *h_e;                        // host vectors of particles
-  int *h_e_bm, *h_i_bm;              // host vectors for bookmarks
-  double *h_phi;                              // host vector for potentials
+  int N;                                // initial number of particle of each species
+  particle *h_i, *h_e;                  // host vectors of particles
+  int *h_e_bm, *h_i_bm;                 // host vectors for bookmarks
+  double *h_phi;                        // host vector for potentials
   
-  dim3 griddim, blockdim;
+  dim3 griddim, blockdim;               // variables for kernel execution
   size_t sh_mem_size;
   
-  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
   
   // device memory
-  double *d_Fx, *d_Fy;                        // vectors for store the force that suffer each particle
+  double *d_Fx, *d_Fy;      // vectors for store the force that suffer each particle
   
   /*----------------------------- function body -------------------------*/
   
@@ -136,16 +132,16 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   cudaMalloc(&d_Fy, N*sizeof(double));
   
   // call kernels to calculate particle forces and fix their velocities
-  griddim = ncy;                                                  // set dimensions of grid of blocks for fast_grid_to_particle and fix_velocity kernel
-  blockdim = PAR_MOV_BLOCK_DIM;                                   // set dimensions of block of threads for fast_grid_to_particle and fix_velocity kernel
-  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(int);    // define size of shared memory for fast_grid_to_particle kernel
+  griddim = ncy;     
+  blockdim = PAR_MOV_BLOCK_DIM;
+  sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(int);
   
-  // electrons
-  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);    // calculate forces
-  fix_velocity<<<griddim, blockdim>>>(dt, me, (*d_e), (*d_e_bm), d_Fx, d_Fy);                                                 // fix electron's velocities
-  // ions
-  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, (*d_i), (*d_i_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);    // calculate forces
-  fix_velocity<<<griddim, blockdim>>>(dt, mi, (*d_i), (*d_i_bm), d_Fx, d_Fy);                                                 // fix ion's velocities
+  // electrons (evaluate forces and fix velocities)
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
+  fix_velocity<<<griddim, blockdim>>>(dt, me, (*d_e), (*d_e_bm), d_Fx, d_Fy);
+  // ions (evaluate forces and fix velocities)
+  fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, (*d_i), (*d_i_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
+  fix_velocity<<<griddim, blockdim>>>(dt, mi, (*d_i), (*d_i_bm), d_Fx, d_Fy);
   
   // free device and host memories 
   free(h_i);
@@ -155,7 +151,6 @@ void initialize (double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, p
   free(h_phi);
   cudaFree(d_Fx);
   cudaFree(d_Fy);
-  
   
   return;
 }
