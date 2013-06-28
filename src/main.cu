@@ -34,7 +34,8 @@ int main (int argc, const char* argv[])
   particle *d_e, *d_i;                  // vector of electron and ions
   int *d_e_bm, *d_i_bm;                 // vector that stores the bookmarks (beginning and end point) for each bin (electrons and ions)
 
-  init_sim (&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
+  init_dev();
+  init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
   cout << "1" << endl;
 
   for (int i = 0; i < 1; i++, t += dt) 

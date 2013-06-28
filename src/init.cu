@@ -12,7 +12,47 @@
 
 /************************ FUNCTION DEFINITIONS ***********************/
 
-void init_dev 
+void init_dev(void)
+{
+  /*--------------------------- function variables -----------------------*/
+  
+  // host memory
+  int dev;
+  int devcnt;
+  cudaDeviceProp devProp;
+  cudaError_t cuError;
+  
+  // device memory
+  
+  /*----------------------------- function body -------------------------*/
+  
+  // check for devices instaled in the host
+  cuError = cudaGetDeviceCount(&devcnt);
+  if (0 != cuError)
+  {
+    printf("Cuda error (%d) detected in 'init_dev(void)'\n", cuError);
+    cout << "exiting simulation..." << endl;
+    exit(1);
+  }
+  cout << devcnt << " devices present in the host:" << endl;
+  for (dev = 0; dev < devcnt; dev++) 
+  {
+    cudaGetDeviceProperties(&devProp, dev);
+    cout << "  - Device " << dev << ":" << endl;
+    cout << "    # " << devProp.name << endl;
+    cout << "    # Compute capability " << devProp.major << "." << devProp.minor << endl;
+  }
+
+  // ask wich device to use
+  cout << "Select in wich device simulation must be run: ";
+  cin >> dev;
+  
+  // set device to be used and reset it
+  cudaSetDevice(dev);
+  cudaDeviceReset();
+  
+  return;
+}
 
 void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm)
 {
