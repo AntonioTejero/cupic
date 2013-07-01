@@ -21,7 +21,6 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   static const int nnx = init_nnx();    // number of nodes in x dimension
   static const int nny = init_nny();    // number of nodes in y dimension
   static const int ncy = init_ncy();    // number of cells in y dimension
-  double zeros[nnx*nny];
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
@@ -32,11 +31,7 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   /*----------------------------- function body -------------------------*/
   
   // initialize device memory to zeros
-  for (int i = 0; i < nnx*nny; i++) 
-  {
-    zeros[i] = 0.0;
-  }
-  cudaMemcpy(d_rho, zeros, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemset(d_rho, 0, nnx*nny*sizeof(double));
   
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
