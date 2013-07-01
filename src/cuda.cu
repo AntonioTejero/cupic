@@ -8,7 +8,7 @@
 
 /****************************** HEADERS ******************************/
 
-#include "diagnostic.h"
+#include "cuda.h"
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
