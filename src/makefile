@@ -5,7 +5,7 @@ NVCC = nvcc
 NVCCFLAGS = -arch=sm_21
 LINKERFLAGS = -lgsl -lgslcblas -lcuda -lcudart
 
-OBJECTS = main.o init.o cc.o mesh.o particles.o diagnostic.o
+OBJECTS = main.o init.o cc.o mesh.o particles.o diagnostic.o cuda.o
 
 
 # Makefile orders
@@ -32,6 +32,9 @@ particles.o : particles.cu particles.h
 	
 diagnostic.o : diagnostic.cu diagnostic.h
 	$(NVCC) $(NVCCFLAGS) -dc diagnostic.cu -o diagnostic.o
+	
+cuda.o : cuda.cu cuda.h
+	$(NVCC) $(NVCCFLAGS) -dc cuda.cu -o cuda.o
 	
 .PHONY : clean open lines
 
