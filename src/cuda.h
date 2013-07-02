@@ -22,6 +22,7 @@
 
 // host function
 void cu_check(cudaError_t cuError);
+void cu_sync_check(void);
 
 
 // device kernels

@@ -16,7 +16,6 @@ void cu_check(cudaError_t cuError)
 {
   // function variables
   
-  
   // function body
   
   if (0 == cuError)
@@ -33,6 +32,26 @@ void cu_check(cudaError_t cuError)
 
 /**********************************************************/
 
+void cu_sync_check(void) 
+{
+  // function variables
+  cudaError_t cuError;
+  
+  // function body
+  
+  cudaDeviceSynchronize();
+  cuError = cudaGetLastError();
+  if (0 == cuError)
+  {
+    return;
+  } else
+  {
+    cout << "CUDA error found. (error code: " << cuError << ")" << endl;
+    cout << "Exiting simulation" << endl;
+    exit(1);
+  }
+  
+}
 
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
