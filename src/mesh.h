@@ -15,10 +15,11 @@
 #include "stdh.h"
 #include "init.h"
 #include "dynamic_sh_mem.h"
+#include "cuda.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
-#define CHARGE_DEP_BLOCK_DIM 1024   //block dimension for defragmentation kernel
+#define CHARGE_DEP_BLOCK_DIM 512   //block dimension for defragmentation kernel
 
 /************************ FUNCTION PROTOTIPES ************************/
 

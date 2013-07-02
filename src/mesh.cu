@@ -24,6 +24,7 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
+  cudaError_t cuError;
   
   // device memory
   
@@ -31,7 +32,8 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   /*----------------------------- function body -------------------------*/
   
   // initialize device memory to zeros
-  cudaMemset(d_rho, 0, nnx*nny*sizeof(double));
+  cuError = cudaMemset(d_rho, 0, nnx*nny*sizeof(double));
+  cu_check(cuError);
   
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
@@ -41,7 +43,10 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   sh_mem_size = 2*nnx*sizeof(double)+4*sizeof(int);
   
   // call to fast_particle_to_grid kernel
+  cudaGetLastError();
   fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(nnx, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
+  cu_sync_check();
+  mesh_snapshot(d_rho, "charge_density");
   
   return;
 }
@@ -58,12 +63,14 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   static const int nny = init_nny();                // number of nodes in y dimension
   static const double epsilon0 = init_epsilon0();   // electric permitivity of free space
   
-  dim3 blockdim, griddim;
   double *h_block_error;
   double error = max_error*10;
-  size_t sh_mem_size;
   int min_iteration = max(nnx, nny);
   
+  dim3 blockdim, griddim;
+  size_t sh_mem_size;
+  cudaError_t cuError;
+
   // device memory
   double *d_block_error;
   
@@ -71,7 +78,7 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   
   // set dimensions of grid of blocks and blocks of threads for jacobi kernel
   blockdim.x = nnx;
-  blockdim.y = 1024/nnx;
+  blockdim.y = 512/nnx;
   griddim = (nny-2)/blockdim.y;
   
   // define size of shared memory for jacobi_iteration kernel
@@ -81,16 +88,20 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   h_block_error = new double[griddim.x];
   
   // allocate device memory
-  cudaMalloc(&d_block_error, griddim.x*sizeof(double));
-  
+  cuError = cudaMalloc(&d_block_error, griddim.x*sizeof(double));
+  cu_check(cuError);
+
   // execute jacobi iterations until solved
   while(min_iteration>=0 && error>=max_error)
   {
     // launch kernel for performing one jacobi iteration
+    cudaGetLastError();
     jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, d_rho, d_phi, d_block_error);
+    cu_sync_check();
     
     // copy device memory to host memory for analize errors
-    cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
+    cuError = cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
+    cu_check(cuError);
     
     // evaluate max error in the iteration
     error = 0;
@@ -126,14 +137,16 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
   
   // set dimensions of grid of blocks and blocks of threads for jacobi kernel
   blockdim.x = nnx;
-  blockdim.y = 1024/nnx;
+  blockdim.y = 512/nnx;
   griddim = (nny-2)/blockdim.y;
   
   // define size of shared memory for jacobi_iteration kernel
   sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
   
   // launch kernel for performing the derivation of the potential to obtain the electric field
+  cudaGetLastError();
   field_derivation<<<griddim, blockdim, sh_mem_size>>>(ds, d_phi, d_Ex, d_Ey);
+  cu_sync_check();
 
   return;
 }
@@ -162,7 +175,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   /*--------------------------- kernel body ----------------------------*/
   
   //---- initialize shared memory variables
-  
+
   // initialize charge density in shared memory to 0.0
   if (blockDim.x >= 2*nnx)
   {
@@ -250,7 +263,12 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
       atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
     }
   }
+  __syncthreads();
   
+  for (int i = threadIdx.x; i < nnx; i += blockDim.x)
+  {
+    rho[blockIdx.x * nnx + i] = 10.0;
+  }
   
   return;
 }
@@ -353,8 +371,8 @@ __global__ void field_derivation (double ds, double *phi_global, double *Ex_glob
   
   // registers
   double Ex, Ey;
-  int global_mem_index = blockDim.x + blockIdx.x*(blockDim.x*blockDim.y) + threadIdx.y*blockDim.x + threadIdx.x;
   int shared_mem_index = blockDim.x + threadIdx.y*blockDim.x + threadIdx.x;
+  int global_mem_index = shared_mem_index + blockIdx.x*(blockDim.x*blockDim.y);
   
   /*------------------------------ kernel body --------------------------*/
   
@@ -417,6 +435,7 @@ __global__ void field_derivation (double ds, double *phi_global, double *Ex_glob
     if (threadIdx.y == 0)
     {
       Ey_global[global_mem_index-blockDim.x] = Ey;
+      Ex_global[global_mem_index-blockDim.x] = 0.0;
     }
   }
   else if (blockIdx.x == gridDim.x - 1)
@@ -424,6 +443,7 @@ __global__ void field_derivation (double ds, double *phi_global, double *Ex_glob
     if (threadIdx.y == blockDim.y - 1)
     {
       Ey_global[global_mem_index+blockDim.x] = Ey;
+      Ex_global[global_mem_index+blockDim.x] = 0.0;
     }
   }
   __syncthreads();
