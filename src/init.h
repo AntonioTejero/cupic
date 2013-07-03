@@ -16,6 +16,8 @@
 #include "gslrand.h"
 #include "mesh.h"
 #include "particles.h"
+#include "dynamic_sh_mem.h"
+#include "cuda.h"
 
 
 /************************ FUNCTION PROTOTIPES ************************/

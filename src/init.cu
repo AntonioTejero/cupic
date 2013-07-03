@@ -80,6 +80,7 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   
   dim3 griddim, blockdim;               // variables for kernel execution
   size_t sh_mem_size;
+  cudaError_t cuError;
   
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
   
@@ -106,18 +107,26 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   h_phi = (double*) malloc(nnx*nny*sizeof(double));
 
   // allocate device memory for particle vectors
-  cudaMalloc (d_i, N*sizeof(particle));
-  cudaMalloc (d_e, N*sizeof(particle));
+  cuError = cudaMalloc (d_i, N*sizeof(particle));
+  cu_check(cuError);
+  cuError = cudaMalloc (d_e, N*sizeof(particle));
+  cu_check(cuError);
 
   // allocate device memory for bookmark vectors
-  cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
-  cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
-
+  cuError = cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
+  cu_check(cuError);
+  cuError = cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
+  cu_check(cuError);
+  
   // allocate device memory for mesh variables
-  cudaMalloc (d_rho, nnx*nny*sizeof(double));
-  cudaMalloc (d_phi, nnx*nny*sizeof(double));
-  cudaMalloc (d_Ex, nnx*nny*sizeof(double));
-  cudaMalloc (d_Ey, nnx*nny*sizeof(double));
+  cuError = cudaMalloc (d_rho, nnx*nny*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc (d_phi, nnx*nny*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc (d_Ex, nnx*nny*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc (d_Ey, nnx*nny*sizeof(double));
+  cu_check(cuError);
 
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy; i++)
@@ -152,13 +161,18 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   }
 
   // copy particle and bookmark vectors from host to device memory
-  cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cuError = cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
+  cu_check(cuError);
+  cuError = cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
+  cu_check(cuError);
+  cuError = cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cu_check(cuError);
+  cuError = cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cu_check(cuError);
 
   // copy potential from host to device memory
-  cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cuError = cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
+  cu_check(cuError);
   
   // deposit charge into the mesh nodes
   charge_deposition((*d_rho), (*d_e), (*d_e_bm), (*d_i), (*d_i_bm));
@@ -170,8 +184,10 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   field_solver((*d_phi), (*d_Ex), (*d_Ey));
   
   // allocate device memory for particle forces
-  cudaMalloc(&d_Fx, N*sizeof(double));
-  cudaMalloc(&d_Fy, N*sizeof(double));
+  cuError = cudaMalloc(&d_Fx, N*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc(&d_Fy, N*sizeof(double));
+  cu_check(cuError);
   
   // call kernels to calculate particle forces and fix their velocities
   griddim = ncy;     
@@ -179,11 +195,22 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   sh_mem_size = 2*2*nnx*sizeof(double)+2*sizeof(int);
   
   // electrons (evaluate forces and fix velocities)
+  cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
+  cu_sync_check();
+  
+  cudaGetLastError();
   fix_velocity<<<griddim, blockdim>>>(dt, me, (*d_e), (*d_e_bm), d_Fx, d_Fy);
+  cu_sync_check();
+  
   // ions (evaluate forces and fix velocities)
+  cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, (*d_i), (*d_i_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
+  cu_sync_check();
+  
+  cudaGetLastError();
   fix_velocity<<<griddim, blockdim>>>(dt, mi, (*d_i), (*d_i_bm), d_Fx, d_Fy);
+  cu_sync_check();
   
   // free device and host memories 
   free(h_i);
@@ -191,8 +218,10 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   free(h_i_bm);
   free(h_e_bm);
   free(h_phi);
-  cudaFree(d_Fx);
-  cudaFree(d_Fy);
+  cuError = cudaFree(d_Fx);
+  cu_check(cuError);
+  cuError = cudaFree(d_Fy);
+  cu_check(cuError);
   
   return;
 }
@@ -563,7 +592,7 @@ __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, doub
   
   //---- Process batches of particles
   
-  for (int i = sh_bm[0]+threadIdx.x; i<=sh_bm[1]; i+=blockDim.x)
+  for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x)
   {
     // load particle data in registers
     p = g_p[i];
