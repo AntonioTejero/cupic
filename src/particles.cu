@@ -108,31 +108,18 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
   double Fx, Fy;
   double distx, disty;
   int ic;
-  int jc = blockIdx.x;
   
   /*--------------------------- kernel body ----------------------------*/
   
   //---- initialize shared memory variables
   
   // load Fields from global memory
-  if (blockDim.x >= 2*nnx)
+  for (int i = threadIdx.x; i < 2*nnx; i += blockDim.x) 
   {
-    if (threadIdx.x < 2*nnx)
-    {
-      sh_Ex[threadIdx.x] = g_Ex[blockIdx.x*nnx+threadIdx.x];
-      sh_Ey[threadIdx.x] = g_Ey[blockIdx.x*nnx+threadIdx.x];
-    }
-    __syncthreads();
+    sh_Ex[i] = g_Ex[blockIdx.x*nnx+i];
+    sh_Ey[i] = g_Ey[blockIdx.x*nnx+i];
   }
-  else
-  {
-    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) 
-    {
-      sh_Ex[i] = g_Ex[blockIdx.x*nnx+i];
-      sh_Ey[i] = g_Ey[blockIdx.x*nnx+i];
-    }
-    __syncthreads();
-  }
+  __syncthreads();
   
   // load bin bookmarks from global memory
   if (threadIdx.x < 2)
@@ -143,7 +130,7 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
   
   //---- Process batches of particles
   
-  for (int i = sh_bm[0]+threadIdx.x; i<=sh_bm[1]; i+=blockDim.x)
+  for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x)
   {
     // load particle in registers
     p = g_p[i];
@@ -151,7 +138,7 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
     ic = int(p.x/ds);
     // calculate distances from particle to down left vertex of the cell (normalized)
     distx = fabs(double(ic*ds)-p.x)/ds;
-    disty = fabs(double(jc*ds)-p.y)/ds;
+    disty = fabs(double(blockDim.x*ds)-p.y)/ds;
     // acumulate fields from vertex of the cell to particle position
     if (q == +1)
     {
@@ -213,7 +200,7 @@ __global__ void leap_frog_step(double dt, double m, particle *g_p, int *g_bm, do
   
   //---- Process batches of particles
   
-  for (int i = sh_bm[0]+threadIdx.x; i<=sh_bm[1]; i+=blockDim.x)
+  for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x)
   {
     // load particle data in registers
     p = g_p[i];
