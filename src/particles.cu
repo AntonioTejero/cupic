@@ -26,11 +26,11 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   static const int nnx = init_nnx();      // number of nodes in x dimension
   static const int ncy = init_ncy();      // number of cells in y dimension
   
-  int h_bm[2*ncy];                        // host vector for bookmarks
   int np;                                 // number of particles
   
   dim3 griddim, blockdim;
   size_t sh_mem_size;
+  cudaError_t cuError;
   
   // device memory
   double *Fx, *Fy;        // force suffered for each particle (electrons or ions)
@@ -47,42 +47,56 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   //---- move electrons
   
   // evaluate number of particles to move (electrons)
-  cudaMemcpy(h_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  np = h_bm[2*ncy-1]-h_bm[0];
+  np = number_of_particles(d_e_bm);
   
   // allocate device memory for particle forces (electrons)
-  cudaMalloc(&Fx, np*sizeof(double));
-  cudaMalloc(&Fy, np*sizeof(double));
+  cuError = cudaMalloc(&Fx, np*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc(&Fy, np*sizeof(double));
+  cu_check(cuError);
   
   // call to fast_grid_to_particle kernel (electrons)
+  cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qe, ds, d_e, d_e_bm, Ex, Ey, Fx, Fy);
+  cu_sync_check();
   
   // call to leap_frog_step kernel (electrons)
+  cudaGetLastError();
   leap_frog_step<<<griddim, blockdim>>>(dt, me, d_e, d_e_bm, Fx, Fy);
+  cu_sync_check();
   
   // free device memory for particle forces (electrons)
-  cudaFree(Fx);
-  cudaFree(Fy);
+  cuError = cudaFree(Fx);
+  cu_check(cuError);
+  cuError = cudaFree(Fy);
+  cu_check(cuError);
   
   //---- move ions  
   
   // evaluate number of particles to move (ions)
-  cudaMemcpy(h_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  np = h_bm[2*ncy-1]-h_bm[0];
+  np = number_of_particles(d_i_bm);
   
   // allocate device memory for particle forces (ions)
-  cudaMalloc(&Fx, np*sizeof(double));
-  cudaMalloc(&Fy, np*sizeof(double));
+  cuError = cudaMalloc(&Fx, np*sizeof(double));
+  cu_check(cuError);
+  cuError = cudaMalloc(&Fy, np*sizeof(double));
+  cu_check(cuError);
   
   // call to fast_grid_to_particle kernel (ions)
+  cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qi, ds, d_i, d_i_bm, Ex, Ey, Fx, Fy);
+  cu_sync_check();
   
   // call to leap_frog_step kernel (ions)
+  cudaGetLastError();
   leap_frog_step<<<griddim, blockdim>>>(dt, mi, d_i, d_i_bm, Fx, Fy);
+  cu_sync_check();
   
   // free device memory for particle forces (ions)
-  cudaFree(Fx);
-  cudaFree(Fy);
+  cuError = cudaFree(Fx);
+  cu_check(cuError);
+  cuError = cudaFree(Fy);
+  cu_check(cuError);
   
   return;
 }

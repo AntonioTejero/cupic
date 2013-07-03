@@ -14,7 +14,9 @@
 
 #include "stdh.h"
 #include "init.h"
+#include "diagnostic.h"
 #include "dynamic_sh_mem.h"
+#include "cuda.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
