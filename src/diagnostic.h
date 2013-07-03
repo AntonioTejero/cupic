@@ -14,6 +14,7 @@
 
 #include "stdh.h"
 #include "init.h"
+#include "cuda.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 

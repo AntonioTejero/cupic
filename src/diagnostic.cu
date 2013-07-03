@@ -19,6 +19,7 @@ int number_of_particles(int *d_bm)
   // host memory
   static const int ncy = init_ncy();      // number of cells in y dimension
   
+  cudaError_t cuError;
   int h_bm[2*ncy];
   
   // device memory
@@ -27,7 +28,8 @@ int number_of_particles(int *d_bm)
   /*----------------------------- function body -------------------------*/
   
   // copy vector of bookmarks from device to host
-  cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   return h_bm[2*ncy-1]-h_bm[0]+1;
 }
@@ -43,6 +45,7 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   particle *h_p;
   int N;
   ofstream file;
+  cudaError_t cuError;
   
   // device memory
   
@@ -56,7 +59,8 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   h_p = (particle *) malloc(N*sizeof(particle));
   
   // copy particle vector from device to host
-  cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   // save snapshot to file
   filename.insert(0, "../output/");
@@ -87,6 +91,7 @@ void mesh_snapshot(double *d_m, string filename)
   static const int nny = init_nny();
   double *h_m;
   ofstream file;
+  cudaError_t cuError;
   
   // device memory
   
@@ -97,7 +102,8 @@ void mesh_snapshot(double *d_m, string filename)
   h_m = (double *) malloc(nnx*nny*sizeof(double));
   
   // copy particle vector from device to host
-  cudaMemcpy (h_m, d_m, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_m, d_m, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   // save snapshot to file
   filename.insert(0, "../output/");
@@ -129,6 +135,7 @@ void show_bm(int * d_bm)
   // host memory
   static const int ncy = init_ncy();      // number of cells in y dimension
   int h_bm[2*ncy];
+  cudaError_t cuError;
   
   // device memory
   
@@ -136,7 +143,8 @@ void show_bm(int * d_bm)
   /*----------------------------- function body -------------------------*/
   
   // copy vector of bookmarks from device to host
-  cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   // print bookmarks
   cout << "| ";
@@ -160,6 +168,7 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   particle *h_p;
   int N;
   ofstream file;
+  cudaError_t cuError;
   
   // device memory
   
@@ -173,7 +182,8 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   h_p = (particle *) malloc(N*sizeof(particle));
   
   // copy particle vector from device to host
-  cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   // save bins to file
   filename.insert(0, "../output/");
