@@ -265,11 +265,6 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   }
   __syncthreads();
   
-  for (int i = threadIdx.x; i < nnx; i += blockDim.x)
-  {
-    rho[blockIdx.x * nnx + i] = 10.0;
-  }
-  
   return;
 }
 
