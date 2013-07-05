@@ -54,6 +54,8 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   
   static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);  //default random number generator (gsl)
   
+  cudaError cuError;
+  
   // device memory
   int *d_e_new_bm, *d_i_new_bm;      // new particle bookmarks (have to be allocated in device memory)
 
@@ -62,18 +64,24 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   //---- sorting and cyclic contour conditions
   
   // allocate device memory for new particle bookmarks
-  cudaMalloc (&d_e_new_bm, 2*ncy*sizeof(int));
-  cudaMalloc (&d_i_new_bm, 2*ncy*sizeof(int));  
+  cuError = cudaMalloc (&d_e_new_bm, 2*ncy*sizeof(int));
+  cu_check(cuError);
+  cuError = cudaMalloc (&d_i_new_bm, 2*ncy*sizeof(int));  
+  cu_check(cuError);
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
   particle_bining(Lx, ds, ncy, d_e_bm, d_e_new_bm, *d_e);
   particle_bining(Lx, ds, ncy, d_i_bm, d_i_new_bm, *d_i);
   
   // copy new and old bookmark to host memory
-  cudaMemcpy (h_e_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_e_new_bm, d_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy (h_i_new_bm, d_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cuError = cudaMemcpy (h_e_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
+  cuError = cudaMemcpy (h_i_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
+  cuError = cudaMemcpy (h_e_new_bm, d_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
+  cuError = cudaMemcpy (h_i_new_bm, d_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
+  cu_check(cuError);
   
   //---- absorbent/emitter contour conditions
   
@@ -91,10 +99,12 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   if (out_e_l != 0 || out_e_r != 0 || in_e != 0)
   {
     // move particles to host dummy vector
-    length = h_e_new_bm[2*ncy-1]-h_e_new_bm[0]+1;                                             // calculate number of particles that remains
-    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));                             // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *d_e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost); // move remaining particles to dummy vector (host memory)
-    cudaFree(*d_e);                                                                           // free old particles device memory
+    length = h_e_new_bm[2*ncy-1]-h_e_new_bm[0]+1;
+    dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));
+    cuError = cudaMemcpy(dummy_p, *d_e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);
+    cu_check(cuError);
+    cuError = cudaFree(*d_e);
+    cu_check(cuError);
     
     // actualize bookmarks (left removed particles)
     if (out_e_l != 0)
@@ -114,8 +124,10 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
       // copy fields data from device to host for simple push
       h_Ex = (double *) malloc(nnx*nny*sizeof(double));
       h_Ey = (double *) malloc(nnx*nny*sizeof(double));
-      cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cuError = cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cu_check(cuError);
+      cuError = cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cu_check(cuError);
       
       // create new particles
       for (int k = h_e_new_bm[2*ncy-1]+1; k < length; k++) 
@@ -164,19 +176,23 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     }
     
     // copy new particles to device memory
-    cudaMalloc(d_e, length*sizeof(particle));                                   // allocate new device memory for particles
-    cudaMemcpy(*d_e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice); // copy new particles to device memory
-    free(dummy_p);                                                              // free intermediate particle vector (host memory)
+    cuError = cudaMalloc(d_e, length*sizeof(particle));
+    cu_check(cuError);
+    cuError = cudaMemcpy(*d_e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
+    cu_check(cuError);
+    free(dummy_p);
   }
   
   //-- ions
   if (out_i_l != 0 || out_i_r != 0 || in_i != 0)
   {
     // move particles to host dummy vector
-    length = h_i_new_bm[2*ncy-1]-h_i_new_bm[0]+1;                                             // calculate number of particles that remains
-    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));                             // allocate intermediate particle vector in host memory
-    cudaMemcpy(dummy_p, *d_i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost); // move remaining particles to dummy vector (host memory)
-    cudaFree(*d_i);                                                                           // free old particles device memory
+    length = h_i_new_bm[2*ncy-1]-h_i_new_bm[0]+1;
+    dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));
+    cuError = cudaMemcpy(dummy_p, *d_i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);
+    cu_check(cuError);
+    cuError = cudaFree(*d_i);
+    cu_check(cuError);
     
     // actualize bookmarks (left removed particles)
     if (out_i_l != 0)
@@ -196,8 +212,10 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
       // copy fields data from device to host for simple push
       h_Ex = (double *) malloc(nnx*nny*sizeof(double));
       h_Ey = (double *) malloc(nnx*nny*sizeof(double));
-      cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cuError = cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cu_check(cuError);
+      cuError = cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
+      cu_check(cuError);
       
       // create new particles
       for (int k = h_i_new_bm[2*ncy-1]+1; k < length; k++) 
@@ -246,14 +264,18 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     }
     
     // copy new particles to device memory
-    cudaMalloc(d_i, length*sizeof(particle));                                   // allocate new device memory for particles
-    cudaMemcpy(*d_i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice); // copy new particles to device memory
-    free(dummy_p);                                                              // free intermediate particle vector (host memory)
+    cuError = cudaMalloc(d_i, length*sizeof(particle));
+    cu_check(cuError);
+    cuError = cudaMemcpy(*d_i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
+    cu_check(cuError);
+    free(dummy_p);
   }
   
   // copy new bookmarks to device memory
-  cudaMemcpy (d_e_bm, h_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cudaMemcpy (d_i_bm, h_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cuError = cudaMemcpy (d_e_bm, h_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cu_check(cuError);
+  cuError = cudaMemcpy (d_i_bm, h_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
+  cu_check(cuError);
   
   return;
 }
@@ -273,13 +295,17 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   blockdim = BINING_BLOCK_DIM;
   
   // execute kernel for defragmentation of particles
+  cudaGetLastError();
   particle_defragmentation<<<griddim, blockdim>>>(Lx, ds, bm, new_bm, p);
-  
+  cu_sync_check();
+  cout << "aaaaaaaaaaa" << endl;
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
   
   // execute kernel for rebracketing of particles
+  cudaGetLastError();
   particle_rebracketing<<<griddim, blockdim>>>(bm, new_bm, p);
+  cu_sync_check();
   
   return;
 }

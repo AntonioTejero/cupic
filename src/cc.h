@@ -16,10 +16,11 @@
 #include "init.h"
 #include "gslrand.h"
 #include "diagnostic.h"
+#include "cuda.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
-#define BINING_BLOCK_DIM 1024   //block dimension for defragmentation kernel
+#define BINING_BLOCK_DIM 512   //block dimension for defragmentation kernel
 
 /************************ FUNCTION PROTOTIPES ************************/
 
