@@ -113,7 +113,10 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
     // actualize counter
     min_iteration--;
   }
-  
+
+  // free host and device memory
+  free(h_block_error);
+  cudaFree(d_block_error);
   return;
 }
 
