@@ -279,10 +279,6 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   double *error = (double *) &phi_old[blockdim.x*(blockdim.y+2)];   // manually set up shared memory variables inside whole shared memory
   double *aux_shared = (double *) &error[blockdim.x*blockdim.y];    //
   
-  //   __shared__ double phi_old[BLOCKDIMX*(BLOCKDIMY+2)];
-  //   __shared__ double aux_shared[BLOCKDIMY];
-  //   __shared__ double error[BLOCKDIMX*BLOCKDIMY];
-  
   // registers
   double phi_new, rho_dummy;
   int global_mem_index = blockDim.x + blockIdx.x*(blockDim.x*blockDim.y) + threadIdx.y*blockDim.x + threadIdx.x;
@@ -310,7 +306,9 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   // actualize cyclic contour conditions
   if (threadIdx.x == 0)
   {
-    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index+blockDim.x-2] + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]+phi_old[shared_mem_index-blockDim.x]);
+    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index+blockDim.x-2]
+    + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]
+    +phi_old[shared_mem_index-blockDim.x]);
     aux_shared[threadIdx.y] = phi_new;
   }
   __syncthreads();
@@ -322,7 +320,9 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
   // actualize interior mesh points
   if (threadIdx.x != 0 && threadIdx.x != blockDim.x-1)
   {
-    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index-1] + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]+phi_old[shared_mem_index-blockDim.x]);
+    phi_new = 0.25*(rho_dummy + phi_old[shared_mem_index-1]
+    + phi_old[shared_mem_index+1] + phi_old[shared_mem_index+blockDim.x]
+    + phi_old[shared_mem_index-blockDim.x]);
   }
   __syncthreads();
   
@@ -337,7 +337,8 @@ __global__ void jacobi_iteration (dim3 blockdim, double ds, double epsilon0, dou
     {
       if (thread_index+stride<blockDim.x*blockDim.y)
       {
-        if (error[thread_index]<error[thread_index+stride]) error[thread_index] = error[thread_index+stride];
+        if (error[thread_index]<error[thread_index+stride])
+          error[thread_index] = error[thread_index+stride];
       }
     }
     __syncthreads();
