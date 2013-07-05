@@ -46,7 +46,6 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   cudaGetLastError();
   fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(nnx, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
   cu_sync_check();
-  mesh_snapshot(d_rho, "charge_density");
   
   return;
 }
