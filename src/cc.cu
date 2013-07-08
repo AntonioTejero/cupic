@@ -295,10 +295,12 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   blockdim = BINING_BLOCK_DIM;
   
   // execute kernel for defragmentation of particles
+  show_bm(bm);
   cudaGetLastError();
   particle_defragmentation<<<griddim, blockdim>>>(Lx, ds, bm, new_bm, p);
   cu_sync_check();
-  cout << "aaaaaaaaaaa" << endl;
+  show_bm(new_bm);
+  
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
   
@@ -321,29 +323,22 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
 
   // kernel shared memory
   __shared__ particle p_sha[BINING_BLOCK_DIM];
-  __shared__ int bin;
   __shared__ int sh_bm[2];
   __shared__ int sh_new_bm[2];
   __shared__ int tail, i, i_shifted;
   
   // kernel registers
-  int n_particles, new_bin, swap_index;
+  int swap_index;
   particle p_reg, p_dummy;
 
   /*--------------------------- kernel body ----------------------------*/
 
   //---- initialize shared memory
 
-  // initialize bin variable (the same as blockIdx.x)
-  if (threadIdx.x == 0) 
-  {
-    bin = blockIdx.x;
-  }
-
   // load bin bookmarks
   if (threadIdx.x < 2)
   {
-    sh_bm[threadIdx.x] = old_bm[bin*2+threadIdx.x];
+    sh_bm[threadIdx.x] = old_bm[blockIdx.x*2+threadIdx.x];
   }
 
   // initialize batches and tail parameters for "-" defrag algorithm
@@ -372,13 +367,12 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   }
 
   // obtaining valid swap_index for each "-" particle in first batch
-  new_bin = p_reg.y/ds;
-  if (new_bin<bin)
+  if (p_reg.y/ds < double(blockIdx.x))
   {
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/ds)!=bin);
+    } while (__double2int_rd(p_sha[swap_index].y/ds) != blockIdx.x);
     // swapping "-" particles from first batch with "non -" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -421,8 +415,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
       } 
 
       // analyze batch of particle in registers
-      new_bin = p_reg.y/ds;
-      if (new_bin<bin)
+      if (p_reg.y/ds < double(blockIdx.x))
       {
         // swapping "-" particles from registers with particles in exchange queue (shared memory)
         swap_index = atomicAdd(&tail, 1);
@@ -478,13 +471,12 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   p_reg = p[i-threadIdx.x];
 
   // obtaining valid swap_index for each "+" particle in last batch
-  new_bin = p_reg.y/ds;
-  if (new_bin>bin)
+  if (p_reg.y/ds > double(blockIdx.x))
   {
     do
     {
       swap_index = atomicAdd(&tail, 1);
-    } while (int(p_sha[swap_index].y/ds)!=bin);
+    } while (__double2int_rd(p_sha[swap_index].y/ds) != blockIdx.x);
     // swapping "+" particles from first batch with "non +" particles from second batch
     p_dummy = p_reg;
     p_reg = p_sha[swap_index];
@@ -518,8 +510,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
       p_reg = p[i_shifted-threadIdx.x];
 
       // analyze batch of particle in registers
-      new_bin = p_reg.y/ds;
-      if (new_bin>bin)
+      if (p_reg.y/ds > double(blockIdx.x))
       {
         // swapping "+" particles from registers with particles in exchange queue (shared memory)
         swap_index = atomicAdd(&tail, 1);
@@ -531,7 +522,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
     __syncthreads();
 
     // write back particle batches to global memory
-    if (i_shifted-threadIdx.x>=sh_bm[0])
+    if (i_shifted-threadIdx.x >= sh_bm[0])
     {
       p[i_shifted-threadIdx.x] = p_reg;
     }
@@ -561,7 +552,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
 
   if (threadIdx.x < 2)
   {
-    new_bm[bin*2+threadIdx.x] = sh_new_bm[threadIdx.x];
+    new_bm[blockIdx.x*2+threadIdx.x] = sh_new_bm[threadIdx.x];
   }
   
   return;  
