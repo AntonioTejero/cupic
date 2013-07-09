@@ -324,7 +324,6 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   // kernel shared memory
   __shared__ particle p_sha[BINING_BLOCK_DIM];
   __shared__ int sh_bm[2];
-  __shared__ int sh_new_bm[2];
   __shared__ int tail, i, i_shifted;
   
   // kernel registers
@@ -449,7 +448,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   // actualize bin_bookmark to the new "bin_start" value
   if (threadIdx.x == 0)
   {
-    sh_new_bm[0] = i;
+    sh_bm[0] = i;
   }
   __syncthreads();
 
@@ -471,7 +470,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   p_reg = p[i-threadIdx.x];
 
   // obtaining valid swap_index for each "+" particle in last batch
-  if (p_reg.y/ds > double(blockIdx.x))
+  if (p_reg.y/ds > double(blockIdx.x + 1))
   {
     do
     {
@@ -498,19 +497,19 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
 
   //---- start of "+" defrag algorithm
 
-  while (i_shifted>=sh_bm[0])
+  while (i_shifted >= sh_bm[0])
   {
     // copy exchange queue from global memory to shared memory
     p_sha[threadIdx.x] = p[i-threadIdx.x];
     __syncthreads();
 
-    if (i_shifted-threadIdx.x>=sh_bm[0])
+    if (i_shifted-threadIdx.x >= sh_bm[0])
     {
       // copy batch of particles to be analyzed from global memory to registers
       p_reg = p[i_shifted-threadIdx.x];
 
       // analyze batch of particle in registers
-      if (p_reg.y/ds > double(blockIdx.x))
+      if (p_reg.y/ds > double(blockIdx.x + 1))
       {
         // swapping "+" particles from registers with particles in exchange queue (shared memory)
         swap_index = atomicAdd(&tail, 1);
@@ -544,7 +543,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
   // actualize bin_bookmark to the new "bin_end" value
   if (threadIdx.x == 0)
   {
-    sh_new_bm[1] = i;
+    sh_bm[1] = i;
   }
   __syncthreads();
 
@@ -552,7 +551,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
 
   if (threadIdx.x < 2)
   {
-    new_bm[blockIdx.x*2+threadIdx.x] = sh_new_bm[threadIdx.x];
+    new_bm[blockIdx.x*2+threadIdx.x] = sh_bm[threadIdx.x];
   }
   
   return;  
