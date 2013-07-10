@@ -91,7 +91,7 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   cu_check(cuError);
 
   // execute jacobi iterations until solved
-  while(min_iteration>=0 && error>=max_error)
+  while(min_iteration>=0 || error>=max_error)
   {
     // launch kernel for performing one jacobi iteration
     cudaGetLastError();
