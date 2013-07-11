@@ -295,11 +295,12 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   blockdim = BINING_BLOCK_DIM;
   
   // execute kernel for defragmentation of particles
-  show_bm(bm);
   cudaGetLastError();
-  particle_defragmentation<<<griddim, blockdim>>>(Lx, ds, bm, new_bm, p);
+  pDefragDown<<<griddim, blockdim>>>(ds, bm, new_bm, p);
   cu_sync_check();
-  show_bm(new_bm);
+  cudaGetLastError();
+  pDefragUp<<<griddim, blockdim>>>(ds, bm, new_bm, p);
+  cu_sync_check();
   
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -317,244 +318,214 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int *new_bm, particle *p)
+__global__ void pDefragDown(double ds, int *g_bm, int *g_new_bm, particle *g_p)
 {
   /*--------------------------- kernel variables -----------------------*/
-
+  
   // kernel shared memory
-  __shared__ particle p_sha[BINING_BLOCK_DIM];
+  __shared__ particle sh_p[BINING_BLOCK_DIM];
   __shared__ int sh_bm[2];
   __shared__ int tail, i, i_shifted;
   
   // kernel registers
   int swap_index;
-  particle p_reg, p_dummy;
-
+  particle reg_p, tmp_p;
+  
   /*--------------------------- kernel body ----------------------------*/
-
+  
   //---- initialize shared memory
-
+  
   // load bin bookmarks
-  if (threadIdx.x < 2)
-  {
-    sh_bm[threadIdx.x] = old_bm[blockIdx.x*2+threadIdx.x];
+  if (threadIdx.x < 2) {
+    sh_bm[threadIdx.x] = g_bm[blockIdx.x*2+threadIdx.x];
   }
 
-  // initialize batches and tail parameters for "-" defrag algorithm
-  if (threadIdx.x == 0)
-  {
+  // initialize batch parameters
+  if (0 == threadIdx.x) {
+    tail = 0;
     i = sh_bm[0];
     i_shifted = i + blockDim.x;
-    tail = 0;
   }
   __syncthreads();
 
-  //---- cleaning first batch of particles
+  //---- cleanup first batch of "-" particles
 
-  // reading from global memory
-  p_sha[threadIdx.x] = p[i_shifted+threadIdx.x];
+  // load shared memory batch and register batch
+  sh_p[threadIdx.x] = g_p[i+threadIdx.x];
   __syncthreads();
-  p_reg = p[i+threadIdx.x];
-  
-  // apply cyclic contour condition
-  if (p_reg.x<0)
-  {
-    p_reg.x += Lx;  
-  } else if (p_reg.x>Lx)
-  {
-    p_reg.x -= Lx;
-  }
+  reg_p = g_p[i_shifted+threadIdx.x];
 
-  // obtaining valid swap_index for each "-" particle in first batch
-  if (p_reg.y/ds < double(blockIdx.x))
-  {
-    do
-    {
+  // analize registers particles and swap
+  if (__double2int_rd(reg_p.y/ds) < (int) blockIdx.x) {
+    do {
       swap_index = atomicAdd(&tail, 1);
-    } while (__double2int_rd(p_sha[swap_index].y/ds) != blockIdx.x);
-    // swapping "-" particles from first batch with "non -" particles from second batch
-    p_dummy = p_reg;
-    p_reg = p_sha[swap_index];
-    p_sha[swap_index] = p_dummy;
+    } while (__double2int_rd(sh_p[swap_index].y/ds) < (int) blockIdx.x);
+    tmp_p = reg_p;
+    reg_p = sh_p[swap_index];
+    sh_p[swap_index] = tmp_p;
   }
   __syncthreads();
-  
-  // write back particle batches to global memory
-  p[i+threadIdx.x] = p_reg;
-  __syncthreads();
-  p[i_shifted+threadIdx.x] = p_sha[threadIdx.x];
 
-  // reset tail parameter (shared memory)
-  if (threadIdx.x == 0)
-  {
+  // store results in global memory
+  g_p[i+threadIdx.x] = sh_p[threadIdx.x];
+  __syncthreads();
+  g_p[i_shifted+threadIdx.x] = reg_p;
+  __syncthreads();
+
+  // reset tail parameter
+  if (0 == threadIdx.x) {
     tail = 0;
   }
-  __syncthreads();
 
-  //---- start of "-" defrag algorithm
+  //---- start "-" defrag
 
-  while (i_shifted<=sh_bm[1])
-  {
-    // copy exchange queue from global memory to shared memory
-    p_sha[threadIdx.x] = p[i+threadIdx.x];
+  while (i_shifted <= sh_bm[1]) {
+    // load shared batch
+    sh_p[threadIdx.x] = g_p[i+threadIdx.x];
     __syncthreads();
 
-    if (i_shifted+threadIdx.x<=sh_bm[1])
-    {
-      // copy batch of particles to be analyzed from global memory to registers
-      p_reg = p[i_shifted+threadIdx.x];
-
-      // apply cyclic contour condition
-      if (p_reg.x<0)
-      {
-        p_reg.x += Lx;  
-      } else if (p_reg.x>Lx)
-      {
-        p_reg.x -= Lx;
-      } 
-
-      // analyze batch of particle in registers
-      if (p_reg.y/ds < double(blockIdx.x))
-      {
-        // swapping "-" particles from registers with particles in exchange queue (shared memory)
+    // load, analize and swap register batch
+    if (i_shifted+threadIdx.x <= sh_bm[1]) {
+      reg_p = g_p[i_shifted+threadIdx.x];
+      if (__double2int_rd(reg_p.y/ds) < (int) blockIdx.x) {
         swap_index = atomicAdd(&tail, 1);
-        p_dummy = p_reg;
-        p_reg = p_sha[swap_index];
-        p_sha[swap_index] = p_dummy;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
       }
     }
     __syncthreads();
 
-    // write back particle batches to global memory
-    if (i_shifted+threadIdx.x<=sh_bm[1])
-    {
-      p[i_shifted+threadIdx.x] = p_reg;
-    }
-    __syncthreads();
-    p[i+threadIdx.x] = p_sha[threadIdx.x];
+    // store results in global memory
+    g_p[i+threadIdx.x] = sh_p[threadIdx.x];
     __syncthreads();
 
-    // actualize parameters in shared memory
-    if (threadIdx.x == 0)
-    {
-      // update batches parameters for next iteration (shared memory)
+    if (i_shifted+threadIdx.x <= sh_bm[1]) {
+      g_p[i_shifted+threadIdx.x] = reg_p;
+    }
+    __syncthreads();
+
+    // actualize batch parameters
+    if (0 == threadIdx.x) {
       i += tail;
       i_shifted += blockDim.x;
-      // reset tail parameter (shared memory)
       tail = 0;
     }
   }
 
-  // actualize bin_bookmark to the new "bin_start" value
-  if (threadIdx.x == 0)
-  {
-    sh_bm[0] = i;
+  //---- store new left bookmarks in global memory
+
+  if (0 == threadIdx.x) {
+    g_new_bm[blockIdx.x*2] = i;
   }
-  __syncthreads();
 
-  //---- reset shared memory variables for "+" defrag algorithm
+  return;
+}
 
-  if (threadIdx.x == 0)
-  {
+/**********************************************************/
+
+__global__ void pDefragUp(double ds, int *g_bm, int *g_new_bm, particle *g_p)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  __shared__ particle sh_p[BINING_BLOCK_DIM];
+  __shared__ int sh_bm[2];
+  __shared__ int tail, i, i_shifted;
+  
+  // kernel registers
+  int swap_index;
+  particle reg_p, tmp_p;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- initialize shared memory
+  
+  // load bin bookmarks
+  if (int(threadIdx.x) < 2) {
+    sh_bm[int(threadIdx.x)] = g_bm[int(blockIdx.x)*2+int(threadIdx.x)];
+  }
+  
+  // initialize batch parameters
+  if (0 == int(threadIdx.x)) {
+    tail = 0;
     i = sh_bm[1];
     i_shifted = i - blockDim.x;
-    tail = 0;
   }
   __syncthreads();
-
-  //---- cleaning last batch of particles
-
-  // reading from global memory
-  p_sha[threadIdx.x] = p[i_shifted-threadIdx.x];
+  
+  //---- cleanup last batch of "+" particles
+  
+  // load shared memory batch and register batch
+  sh_p[int(threadIdx.x)] = g_p[i-int(threadIdx.x)];
   __syncthreads();
-  p_reg = p[i-threadIdx.x];
-
-  // obtaining valid swap_index for each "+" particle in last batch
-  if (p_reg.y/ds > double(blockIdx.x + 1))
-  {
-    do
-    {
+  reg_p = g_p[i_shifted-int(threadIdx.x)];
+  
+  // analize registers particles and swap
+  if (__double2int_rd(reg_p.y/ds) > (int) blockIdx.x) {
+    do {
       swap_index = atomicAdd(&tail, 1);
-    } while (__double2int_rd(p_sha[swap_index].y/ds) != blockIdx.x);
-    // swapping "+" particles from first batch with "non +" particles from second batch
-    p_dummy = p_reg;
-    p_reg = p_sha[swap_index];
-    p_sha[swap_index] = p_dummy;
+    } while (__double2int_rd(sh_p[swap_index].y/ds) > (int) blockIdx.x);
+    tmp_p = reg_p;
+    reg_p = sh_p[swap_index];
+    sh_p[swap_index] = tmp_p;
   }
   __syncthreads();
-
-  // write back particle batches to global memory
-  p[i-threadIdx.x] = p_reg;
+  
+  // store results in global memory
+  g_p[i-int(threadIdx.x)] = sh_p[int(threadIdx.x)];
   __syncthreads();
-  p[i_shifted-threadIdx.x] = p_sha[threadIdx.x];
+  g_p[i_shifted-int(threadIdx.x)] = reg_p;
   __syncthreads();
-
-  // reset tail parameter (shared memory)
-  if (threadIdx.x ==0)
-  {
+  
+  // reset tail parameter
+  if (0 == int(threadIdx.x)) {
     tail = 0;
   }
-
-  //---- start of "+" defrag algorithm
-
-  while (i_shifted >= sh_bm[0])
-  {
-    // copy exchange queue from global memory to shared memory
-    p_sha[threadIdx.x] = p[i-threadIdx.x];
+  
+  //---- start "+" defrag
+  
+  while (i_shifted >= sh_bm[0]) {
+    // load shared batch
+    sh_p[int(threadIdx.x)] = g_p[i-int(threadIdx.x)];
     __syncthreads();
-
-    if (i_shifted-threadIdx.x >= sh_bm[0])
-    {
-      // copy batch of particles to be analyzed from global memory to registers
-      p_reg = p[i_shifted-threadIdx.x];
-
-      // analyze batch of particle in registers
-      if (p_reg.y/ds > double(blockIdx.x + 1))
-      {
-        // swapping "+" particles from registers with particles in exchange queue (shared memory)
+    
+    // load, analize and swap register batch
+    if (i_shifted-int(threadIdx.x) >= sh_bm[0]) {
+      reg_p = g_p[i_shifted-int(threadIdx.x)];
+      if (__double2int_rd(reg_p.y/ds) > (int) blockIdx.x) {
         swap_index = atomicAdd(&tail, 1);
-        p_dummy = p_reg;
-        p_reg = p_sha[swap_index];
-        p_sha[swap_index] = p_dummy;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
       }
     }
     __syncthreads();
-
-    // write back particle batches to global memory
-    if (i_shifted-threadIdx.x >= sh_bm[0])
-    {
-      p[i_shifted-threadIdx.x] = p_reg;
+    
+    // store results in global memory
+    g_p[i-int(threadIdx.x)] = sh_p[int(threadIdx.x)];
+    __syncthreads();
+    
+    if (i_shifted-int(threadIdx.x) >= sh_bm[0]) {
+      g_p[i_shifted-int(threadIdx.x)] = reg_p;
     }
     __syncthreads();
-    p[i-threadIdx.x] = p_sha[threadIdx.x];
-    __syncthreads();
-
-    // actualize parameters in shared memory
-    if (threadIdx.x == 0)
-    {
-      // update batches parameters for next iteration (shared memory)
+    
+    // actualize batch parameters
+    if (0 == int(threadIdx.x)) {
       i -= tail;
       i_shifted -= blockDim.x;
-      // reset tail parameter (shared memory)
       tail = 0;
     }
   }
-
-  // actualize bin_bookmark to the new "bin_end" value
-  if (threadIdx.x == 0)
-  {
-    sh_bm[1] = i;
-  }
-  __syncthreads();
-
-  //---- store actualized bookmarks in new bin bookmarks variable in global memory
-
-  if (threadIdx.x < 2)
-  {
-    new_bm[blockIdx.x*2+threadIdx.x] = sh_bm[threadIdx.x];
+  
+  //---- store new right bookmarks in global memory
+  
+  if (0 == int(threadIdx.x)) {
+    g_new_bm[int(blockIdx.x)*2+1] = i;
   }
   
-  return;  
+  return;
 }
 
 /**********************************************************/
@@ -562,7 +533,7 @@ __global__ void particle_defragmentation(double Lx, double ds, int *old_bm, int 
 __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
 {
   /*--------------------------- kernel variables -----------------------*/
-
+  
   // kernel shared memory
   __shared__ int sh_old_bm[2];        // bookmarks before defragmentation (also used to store bookmarks after rebracketing) (bin_end, bin_start)
   __shared__ int sh_new_bm[2];        // bookmarks after particle defragmentation (bin_end, bin_start)
@@ -571,12 +542,12 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
   // kernel registers
   particle p_dummy;                   // dummy particle for swapping
   int stride = 1+threadIdx.x;         // offset stride for each thread to swap the correct particle
-
-
+  
+  
   /*--------------------------- kernel body ----------------------------*/
-
+  
   //---- initialize shared memory
-
+  
   // load old and new bookmarks from global memory
   if (threadIdx.x < 2)
   {
@@ -584,7 +555,7 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     sh_new_bm[threadIdx.x] = new_bm[1+blockIdx.x*2+threadIdx.x];
   }
   __syncthreads();
-
+  
   // set tpb variable and evaluate number of swaps needed for each bin frontier
   if (threadIdx.x == 0)
   {
@@ -592,9 +563,9 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     nswaps = ( (sh_old_bm[0]-sh_new_bm[0])<(sh_new_bm[1]-sh_old_bm[1]) ) ? (sh_old_bm[0]-sh_new_bm[0]) : (sh_new_bm[1]-sh_old_bm[1]);
   }
   __syncthreads();
-
+  
   //---- if number of swaps needed is greater than the number of threads per block:
-
+  
   while (nswaps >= tpb)
   {
     // swapping of tpb particles
@@ -602,7 +573,7 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     p[sh_new_bm[0]+stride] = p[sh_new_bm[1]-stride];
     p[sh_new_bm[1]-stride] = p_dummy;
     __syncthreads();
-
+    
     // actualize shared new bookmarks
     if (threadIdx.x == 0)
     {
@@ -612,9 +583,9 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     }
     __syncthreads();
   }
-
+  
   //---- if number of swaps needed is lesser than the number of threads per block:
-
+  
   if (nswaps>0)
   {
     // swapping nswaps particles (all swaps needed)
@@ -626,9 +597,9 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     }
     __syncthreads();
   }
-
+  
   //---- evaluate new bookmarks and store in global memory
-
+  
   //actualize shared new bookmarks
   if (threadIdx.x == 0)
   {
@@ -643,14 +614,14 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
     }
   }
   __syncthreads();
-
+  
   // store new bookmarks in global memory
   if (threadIdx.x < 2)
   {
     new_bm[1+blockIdx.x*2+threadIdx.x] = sh_new_bm[threadIdx.x];
   }
   __syncthreads();
-
+  
   return;
 }
 
