@@ -46,7 +46,7 @@ int main (int argc, const char* argv[])
     
     cout << "3" << endl;
     // solve poisson equation
-    poisson_solver(1.0e-8, d_rho, d_phi);
+    poisson_solver(1.0e-12, d_rho, d_phi);
     
     cout << "4" << endl;
     // derive electric fields from potential
