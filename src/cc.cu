@@ -53,7 +53,8 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   particle *dummy_p;                                      // dummy vector for particle storage
   
   static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);  //default random number generator (gsl)
-  
+
+  dim3 griddim, blockdim;
   cudaError cuError;
   
   // device memory
@@ -276,6 +277,18 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   cu_check(cuError);
   cuError = cudaMemcpy (d_i_bm, h_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
   cu_check(cuError);
+
+  //---- apply cyclic contour conditions
+  
+  griddim = ncy;
+  blockdim = BINING_BLOCK_DIM;
+
+  cudaGetLastError();
+  cyclicCC<<<griddim, blockdim>>>(Lx, d_e_bm, *d_e);
+  cu_sync_check();
+  cudaGetLastError();
+  cyclicCC<<<griddim, blockdim>>>(Lx, d_i_bm, *d_i);
+  cu_sync_check();
   
   return;
 }
@@ -622,6 +635,44 @@ __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p)
   }
   __syncthreads();
   
+  return;
+}
+
+/**********************************************************/
+
+__global__ void cyclicCC(double Lx, int *g_bm, particle *g_p)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  __shared__ int sh_bm[2];
+  
+  // kernel registers
+  particle reg_p;
+  int tpb = (int) blockDim.x;
+  int tid = (int) threadIdx.x;
+  int bid = (int) blockIdx.x;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- initialize shared memory
+  if (tid < 2) {
+    sh_bm[tid] = g_bm[tid + bid*2];
+  }
+  __syncthreads();
+
+  //---- analize cyclic contour condition for every particle in the batch
+  for (int i = sh_bm[0]+tid; i <= sh_bm[1]; i += tpb) {
+    reg_p = g_p[i];
+    if (reg_p.x < 0.0) {
+      reg_p.x += Lx;
+    } else if (reg_p.x > Lx) {
+      reg_p.x -= Lx;
+    }
+    __syncthreads();
+    g_p[i] = reg_p;
+  }
+
   return;
 }
 
