@@ -66,9 +66,13 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   
   // allocate device memory for new particle bookmarks
   cuError = cudaMalloc (&d_e_new_bm, 2*ncy*sizeof(int));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
+  cuError = cudaMemcpy (d_e_new_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (&d_i_new_bm, 2*ncy*sizeof(int));  
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
+  cuError = cudaMemcpy (d_i_new_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // sort particles with bining algorithm, also apply cyclic contour conditions during particle defragmentation
   particle_bining(Lx, ds, ncy, d_e_bm, d_e_new_bm, *d_e);
@@ -76,13 +80,13 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   
   // copy new and old bookmark to host memory
   cuError = cudaMemcpy (h_e_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (h_i_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (h_e_new_bm, d_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (h_i_new_bm, d_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   //---- absorbent/emitter contour conditions
   
@@ -103,9 +107,9 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     length = h_e_new_bm[2*ncy-1]-h_e_new_bm[0]+1;
     dummy_p = (particle*) malloc((length+in_e)*sizeof(particle));
     cuError = cudaMemcpy(dummy_p, *d_e+h_e_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_e);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     
     // actualize bookmarks (left removed particles)
     if (out_e_l != 0)
@@ -126,9 +130,9 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
       h_Ex = (double *) malloc(nnx*nny*sizeof(double));
       h_Ey = (double *) malloc(nnx*nny*sizeof(double));
       cuError = cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError);
+      cu_check(cuError, __FILE__, __LINE__);
       cuError = cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError);
+      cu_check(cuError, __FILE__, __LINE__);
       
       // create new particles
       for (int k = h_e_new_bm[2*ncy-1]+1; k < length; k++) 
@@ -178,9 +182,9 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     
     // copy new particles to device memory
     cuError = cudaMalloc(d_e, length*sizeof(particle));
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaMemcpy(*d_e, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     free(dummy_p);
   }
   
@@ -191,9 +195,9 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     length = h_i_new_bm[2*ncy-1]-h_i_new_bm[0]+1;
     dummy_p = (particle*) malloc((length+in_i)*sizeof(particle));
     cuError = cudaMemcpy(dummy_p, *d_i+h_i_new_bm[0], length*sizeof(particle), cudaMemcpyDeviceToHost);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_i);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     
     // actualize bookmarks (left removed particles)
     if (out_i_l != 0)
@@ -214,9 +218,9 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
       h_Ex = (double *) malloc(nnx*nny*sizeof(double));
       h_Ey = (double *) malloc(nnx*nny*sizeof(double));
       cuError = cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError);
+      cu_check(cuError, __FILE__, __LINE__);
       cuError = cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError);
+      cu_check(cuError, __FILE__, __LINE__);
       
       // create new particles
       for (int k = h_i_new_bm[2*ncy-1]+1; k < length; k++) 
@@ -266,17 +270,17 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
     
     // copy new particles to device memory
     cuError = cudaMalloc(d_i, length*sizeof(particle));
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaMemcpy(*d_i, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     free(dummy_p);
   }
   
   // copy new bookmarks to device memory
   cuError = cudaMemcpy (d_e_bm, h_e_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (d_i_bm, h_i_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
 
   //---- apply cyclic contour conditions
   
@@ -285,10 +289,10 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
 
   cudaGetLastError();
   cyclicCC<<<griddim, blockdim>>>(Lx, d_e_bm, *d_e);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   cudaGetLastError();
   cyclicCC<<<griddim, blockdim>>>(Lx, d_i_bm, *d_i);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   return;
 }
@@ -309,11 +313,11 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   
   // execute kernel for defragmentation of particles
   cudaGetLastError();
-  pDefragDown<<<griddim, blockdim>>>(ds, bm, new_bm, p);
-  cu_sync_check();
+  pDefragDown<<<griddim, blockdim>>>(ds, new_bm, p);
+  cu_sync_check(__FILE__, __LINE__);
   cudaGetLastError();
-  pDefragUp<<<griddim, blockdim>>>(ds, bm, new_bm, p);
-  cu_sync_check();
+  pDefragUp<<<griddim, blockdim>>>(ds, new_bm, p);
+  cu_sync_check(__FILE__, __LINE__);
   
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -321,7 +325,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // execute kernel for rebracketing of particles
   cudaGetLastError();
   particle_rebracketing<<<griddim, blockdim>>>(bm, new_bm, p);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   return;
 }
@@ -331,7 +335,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
-__global__ void pDefragDown(double ds, int *g_bm, int *g_new_bm, particle *g_p)
+__global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
 {
   /*--------------------------- kernel variables -----------------------*/
   
@@ -350,7 +354,7 @@ __global__ void pDefragDown(double ds, int *g_bm, int *g_new_bm, particle *g_p)
   
   // load bin bookmarks
   if (threadIdx.x < 2) {
-    sh_bm[threadIdx.x] = g_bm[blockIdx.x*2+threadIdx.x];
+    sh_bm[threadIdx.x] = g_new_bm[blockIdx.x*2+threadIdx.x];
   }
 
   // initialize batch parameters
@@ -437,7 +441,7 @@ __global__ void pDefragDown(double ds, int *g_bm, int *g_new_bm, particle *g_p)
 
 /**********************************************************/
 
-__global__ void pDefragUp(double ds, int *g_bm, int *g_new_bm, particle *g_p)
+__global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
 {
   /*--------------------------- kernel variables -----------------------*/
   
@@ -456,7 +460,7 @@ __global__ void pDefragUp(double ds, int *g_bm, int *g_new_bm, particle *g_p)
   
   // load bin bookmarks
   if (int(threadIdx.x) < 2) {
-    sh_bm[int(threadIdx.x)] = g_bm[int(blockIdx.x)*2+int(threadIdx.x)];
+    sh_bm[int(threadIdx.x)] = g_new_bm[int(blockIdx.x)*2+int(threadIdx.x)];
   }
   
   // initialize batch parameters

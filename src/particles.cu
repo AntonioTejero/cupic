@@ -51,25 +51,25 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   
   // allocate device memory for particle forces (electrons)
   cuError = cudaMalloc(&Fx, np*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc(&Fy, np*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // call to fast_grid_to_particle kernel (electrons)
   cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qe, ds, d_e, d_e_bm, Ex, Ey, Fx, Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // call to leap_frog_step kernel (electrons)
   cudaGetLastError();
   leap_frog_step<<<griddim, blockdim>>>(dt, me, d_e, d_e_bm, Fx, Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // free device memory for particle forces (electrons)
   cuError = cudaFree(Fx);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaFree(Fy);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   //---- move ions  
   
@@ -78,25 +78,25 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   
   // allocate device memory for particle forces (ions)
   cuError = cudaMalloc(&Fx, np*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc(&Fy, np*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // call to fast_grid_to_particle kernel (ions)
   cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, qi, ds, d_i, d_i_bm, Ex, Ey, Fx, Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // call to leap_frog_step kernel (ions)
   cudaGetLastError();
   leap_frog_step<<<griddim, blockdim>>>(dt, mi, d_i, d_i_bm, Fx, Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // free device memory for particle forces (ions)
   cuError = cudaFree(Fx);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaFree(Fy);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   return;
 }

@@ -33,7 +33,7 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   
   // initialize device memory to zeros
   cuError = cudaMemset(d_rho, 0, nnx*nny*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
   griddim = ncy;
@@ -45,7 +45,7 @@ void charge_deposition(double *d_rho, particle *d_e, int *d_e_bm, particle *d_i,
   // call to fast_particle_to_grid kernel
   cudaGetLastError();
   fast_particle_to_grid<<<griddim, blockdim, sh_mem_size>>>(nnx, ds, d_rho, d_e, d_e_bm, d_i, d_i_bm);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   return;
 }
@@ -88,7 +88,7 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   
   // allocate device memory
   cuError = cudaMalloc(&d_block_error, griddim.x*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
 
   // execute jacobi iterations until solved
   while(min_iteration>=0 || error>=max_error)
@@ -96,11 +96,11 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
     // launch kernel for performing one jacobi iteration
     cudaGetLastError();
     jacobi_iteration<<<griddim, blockdim, sh_mem_size>>>(blockdim, ds, epsilon0, d_rho, d_phi, d_block_error);
-    cu_sync_check();
+    cu_sync_check(__FILE__, __LINE__);
     
     // copy device memory to host memory for analize errors
     cuError = cudaMemcpy(h_block_error, d_block_error, griddim.x*sizeof(double), cudaMemcpyDeviceToHost);
-    cu_check(cuError);
+    cu_check(cuError, __FILE__, __LINE__);
     
     // evaluate max error in the iteration
     error = 0;
@@ -148,7 +148,7 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
   // launch kernel for performing the derivation of the potential to obtain the electric field
   cudaGetLastError();
   field_derivation<<<griddim, blockdim, sh_mem_size>>>(ds, d_phi, d_Ex, d_Ey);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
 
   return;
 }

@@ -30,8 +30,8 @@ void particle_bining(double Lx, double dy, int ncy, int *bm, int *new_bm, partic
 
 
 // device kernels
-__global__ void pDefragDown(double ds, int *g_bm, int *g_new_bm, particle *g_p);
-__global__ void pDefragUp(double ds, int *g_bm, int *g_new_bm, particle *g_p);
+__global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p);
+__global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p);
 __global__ void particle_rebracketing(int *bm, int *new_bm, particle *p);
 __global__ void cyclicCC(double Lx, int *g_bm, particle *g_p);
 

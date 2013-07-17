@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cu_check(cudaError_t cuError) 
+void cu_check(cudaError_t cuError, const string file, const int line)
 {
   // function variables
   
@@ -23,7 +23,7 @@ void cu_check(cudaError_t cuError)
     return;
   } else
   {
-    cout << "CUDA error found. (error code: " << cuError << ")" << endl;
+    cout << "CUDA error found in file " << file << " at line " << line << ". (error code: " << cuError << ")" << endl;
     cout << "Exiting simulation" << endl;
     exit(1);
   }
@@ -32,7 +32,7 @@ void cu_check(cudaError_t cuError)
 
 /**********************************************************/
 
-void cu_sync_check(void) 
+void cu_sync_check(const string file, const int line)
 {
   // function variables
   cudaError_t cuError;
@@ -46,7 +46,7 @@ void cu_sync_check(void)
     return;
   } else
   {
-    cout << "CUDA error found. (error code: " << cuError << ")" << endl;
+    cout << "CUDA error found in file " << file << " at line " << line << ". (error code: " << cuError << ")" << endl;
     cout << "Exiting simulation" << endl;
     exit(1);
   }

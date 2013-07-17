@@ -108,25 +108,25 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
 
   // allocate device memory for particle vectors
   cuError = cudaMalloc (d_i, N*sizeof(particle));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (d_e, N*sizeof(particle));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
 
   // allocate device memory for bookmark vectors
   cuError = cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // allocate device memory for mesh variables
   cuError = cudaMalloc (d_rho, nnx*nny*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (d_phi, nnx*nny*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (d_Ex, nnx*nny*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc (d_Ey, nnx*nny*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
 
   // initialize particle vectors and bookmarks (host memory)
   for (int i = 0; i < ncy; i++)
@@ -162,17 +162,17 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
 
   // copy particle and bookmark vectors from host to device memory
   cuError = cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
 
   // copy potential from host to device memory
   cuError = cudaMemcpy (*d_phi, h_phi, nnx*nny*sizeof(double), cudaMemcpyHostToDevice);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // deposit charge into the mesh nodes
   charge_deposition((*d_rho), (*d_e), (*d_e_bm), (*d_i), (*d_i_bm));
@@ -185,9 +185,9 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   
   // allocate device memory for particle forces
   cuError = cudaMalloc(&d_Fx, N*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc(&d_Fy, N*sizeof(double));
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // call kernels to calculate particle forces and fix their velocities
   griddim = ncy;     
@@ -197,20 +197,20 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   // electrons (evaluate forces and fix velocities)
   cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, -1, ds, (*d_e), (*d_e_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   cudaGetLastError();
   fix_velocity<<<griddim, blockdim>>>(dt, me, (*d_e), (*d_e_bm), d_Fx, d_Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // ions (evaluate forces and fix velocities)
   cudaGetLastError();
   fast_grid_to_particle<<<griddim, blockdim, sh_mem_size>>>(nnx, +1, ds, (*d_i), (*d_i_bm), (*d_Ex), (*d_Ey), d_Fx, d_Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   cudaGetLastError();
   fix_velocity<<<griddim, blockdim>>>(dt, mi, (*d_i), (*d_i_bm), d_Fx, d_Fy);
-  cu_sync_check();
+  cu_sync_check(__FILE__, __LINE__);
   
   // free device and host memories 
   free(h_i);
@@ -219,9 +219,9 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
   free(h_e_bm);
   free(h_phi);
   cuError = cudaFree(d_Fx);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaFree(d_Fy);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   return;
 }

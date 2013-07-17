@@ -29,7 +29,7 @@ int number_of_particles(int *d_bm)
   
   // copy vector of bookmarks from device to host
   cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   return h_bm[2*ncy-1]-h_bm[0]+1;
 }
@@ -60,7 +60,7 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   
   // copy particle vector from device to host
   cuError = cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // save snapshot to file
   filename.insert(0, "../output/");
@@ -103,7 +103,7 @@ void mesh_snapshot(double *d_m, string filename)
   
   // copy particle vector from device to host
   cuError = cudaMemcpy (h_m, d_m, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // save snapshot to file
   filename.insert(0, "../output/");
@@ -144,7 +144,7 @@ void show_bm(int * d_bm)
   
   // copy vector of bookmarks from device to host
   cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // print bookmarks
   cout << "| ";
@@ -183,7 +183,7 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   
   // copy particle vector from device to host
   cuError = cudaMemcpy (h_p, d_p, N*sizeof(particle), cudaMemcpyDeviceToHost);
-  cu_check(cuError);
+  cu_check(cuError, __FILE__, __LINE__);
   
   // save bins to file
   filename.insert(0, "../output/");

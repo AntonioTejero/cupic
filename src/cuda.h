@@ -21,9 +21,8 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void cu_check(cudaError_t cuError);
-void cu_sync_check(void);
-
+void cu_check(cudaError_t cuError, const string file, const int line);
+void cu_sync_check(const string file, const int line);
 
 // device kernels
 
