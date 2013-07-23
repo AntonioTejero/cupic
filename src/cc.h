@@ -20,7 +20,7 @@
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
-#define BINING_BLOCK_DIM 512   //block dimension for defragmentation kernel
+#define BINING_BLOCK_DIM 256   //block dimension for defragmentation kernel
 
 /************************ FUNCTION PROTOTIPES ************************/
 
