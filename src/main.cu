@@ -36,31 +36,29 @@ int main (int argc, const char* argv[])
 
   init_dev();
   init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
-  cout << "Simulation initialized!" << endl;
-
-  for (int i = 1; i < 1000; i++, t += dt)
+  cout << "Simulation initialized with " << number_of_particles(d_e_bm)*2 << " particles." << endl << endl;
+  cout << "t = " << 0. << endl;
+  particles_snapshot(d_e, d_e_bm, "electrons_ic");
+  particles_snapshot(d_i, d_i_bm, "ions_ic");
+  
+  for (int i = 1; i < 10000; i++, t += dt)
   {
-    cout << "1" << endl;
     // deposit charge into the mesh nodes
     charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
     
-    cout << "2" << endl;
     // solve poisson equation
     poisson_solver(1.0e-12, d_rho, d_phi);
     
-    cout << "3" << endl;
     // derive electric fields from potential
     field_solver(d_phi, d_Ex, d_Ey);
     
-    cout << "4" << endl;
     // move particles
     particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
     
-    cout << "5" << endl;
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
     
-    cout << "--------------------" << i << endl;
+    cout << "t = " << dt*i << endl;
   }
   
   cout << "Simulation finished!" << endl;
