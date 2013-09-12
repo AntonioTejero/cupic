@@ -280,14 +280,13 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
   // kernel shared memory
   __shared__ particle sh_p[BINING_BLOCK_DIM];
   __shared__ int sh_bm[2];
-  __shared__ int N, tail, i, i_shifted;
+  __shared__ int N, tail, i, i_shifted, tpb;
   
   // kernel registers
   int swap_index;
   particle reg_p, tmp_p;
   int tid = (int) threadIdx.x;
   int bid = (int) blockIdx.x;
-  int tpb = (int) blockDim.x;
   
   /*--------------------------- kernel body ----------------------------*/
   
@@ -301,34 +300,45 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
   // initialize batch parameters
   if (0 == tid) {
     N = sh_bm[1]-sh_bm[0]+1;
+    tpb = (int) blockDim.x;
     while (N < 2*tpb) {
       tpb /= 2;
     }
     tail = 0;
     i = sh_bm[0];
     i_shifted = i + tpb;
+    N = 0;
   }
   __syncthreads();
 
   //---- cleanup first batch of "-" particles
 
-  // load shared and registers batch and analize registers
-  if (tid < tpb) {
-    sh_p[tid] = g_p[i_shifted+tid];
-  }
-  __syncthreads();
+  // load register batch
   if (tid < tpb) {
     reg_p = g_p[i+tid];
-    if (__double2int_rd(reg_p.y/ds) < bid) {
-      do {
-        swap_index = atomicAdd(&tail, 1);
-      } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
-      tmp_p = reg_p;
-      reg_p = sh_p[swap_index];
-      sh_p[swap_index] = tmp_p;
+  }
+
+  for (int count = 0; N < tpb; count++, __syncthreads()) {
+    // load shared memory batch
+    if (tid < tpb) {
+      sh_p[tid] = g_p[i_shifted+tid+count*tpb];
+    }
+    __syncthreads();
+    // analize register batch
+    if (tid < tpb) {
+      if (__double2int_rd(reg_p.y/ds) < bid) {
+        do {
+          swap_index = atomicAdd(&tail, 1);
+          if (swap_index >= tpb) break;
+        } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
+        if (swap_index >= tpb) continue;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
+      }
+      atomicAdd(&N, 1);
     }
   }
-  __syncthreads();
 
   // store results in global memory
   if (tid < tpb) {
@@ -407,14 +417,13 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
   // kernel shared memory
   __shared__ particle sh_p[BINING_BLOCK_DIM];
   __shared__ int sh_bm[2];
-  __shared__ int N, tail, i, i_shifted;
+  __shared__ int N, tail, i, i_shifted, tpb;
   
   // kernel registers
   int swap_index;
   particle reg_p, tmp_p;
   int tid = (int) threadIdx.x;
   int bid = (int) blockIdx.x;
-  int tpb = (int) blockDim.x;
   
   /*--------------------------- kernel body ----------------------------*/
   
@@ -428,34 +437,45 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
   // initialize batch parameters
   if (0 == tid) {
     N = sh_bm[1]-sh_bm[0]+1;
+    tpb = (int) blockDim.x;
     while (N < 2*tpb) {
       tpb /= 2;
     }
     tail = 0;
     i = sh_bm[1];
     i_shifted = i - tpb;
+    N = 0;
   }
   __syncthreads();
   
   //---- cleanup last batch of "+" particles
-  
-  // load shared and registers batch and analize registers
-  if (tid < tpb) {
-    sh_p[tid] = g_p[i_shifted-tid];
-  }
-  __syncthreads();
+
+  // load register batch
   if (tid < tpb) {
     reg_p = g_p[i-tid];
-    if (__double2int_rd(reg_p.y/ds) > bid) {
-      do {
-        swap_index = atomicAdd(&tail, 1);
-      } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
-      tmp_p = reg_p;
-      reg_p = sh_p[swap_index];
-      sh_p[swap_index] = tmp_p;
+  }
+  
+  for (int count = 0; N < tpb; count++, __syncthreads()) {
+    // load shared memory batch
+    if (tid < tpb) {
+      sh_p[tid] = g_p[i_shifted-tid-count*tpb];
+    }
+    __syncthreads();
+    // analize register batch
+    if (tid < tpb) {
+      if (__double2int_rd(reg_p.y/ds) > bid) {
+        do {
+          swap_index = atomicAdd(&tail, 1);
+          if (swap_index >= tpb) break;
+        } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
+        if (swap_index >= tpb) continue;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
+      }
+      atomicAdd(&N, 1);
     }
   }
-  __syncthreads();
   
   // store results in global memory
   if (tid < tpb) {

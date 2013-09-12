@@ -18,7 +18,7 @@ Ly = 2.5e-1;
 ds = 1.0e-2;
 
 #time variables
-dt = 1.0e-4;
+dt = 1.0e-3;
 
 #electromagnetic properties
 epsilon0 = 7143.368;
