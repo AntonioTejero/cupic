@@ -194,7 +194,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
         dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
         dummy_p[k].y = Ly;
         dummy_p[k].vx = gsl_ran_gaussian(rng, sqrt(kt/m));
-        dummy_p[k].vy = gsl_ran_rayleigh(rng, sqrt(kt/m));
+        dummy_p[k].vy = -gsl_ran_rayleigh(rng, sqrt(kt/m));
         
         // calculate cell index
         ic = int (dummy_p[k].x/ds);
