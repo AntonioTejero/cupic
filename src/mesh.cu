@@ -179,24 +179,13 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   //---- initialize shared memory variables
 
   // initialize charge density in shared memory to 0.0
-  if (blockDim.x >= 2*nnx)
-  {
-    if (threadIdx.x < 2*nnx)
-    {
-      sh_partial_rho[threadIdx.x] = 0.0;
-    }
-  } else
-  {
-    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
-    {
-      sh_partial_rho[i] = 0.0;
-    }
+  for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
+    sh_partial_rho[i] = 0.0;
   }
   __syncthreads();
   
   // load bin bookmarks from global memory
-  if (threadIdx.x < 2)
-  {
+  if (threadIdx.x < 2) {
     sh_e_bm[threadIdx.x] = e_bm[blockIdx.x*2+threadIdx.x];
     sh_i_bm[threadIdx.x] = i_bm[blockIdx.x*2+threadIdx.x];
   }
@@ -206,8 +195,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   
   // electron deposition
   
-  for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x)
-  {
+  for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x) {
     // load electron in registers
     p = elec[i];
     // calculate x coordinate of the cell that the electron belongs to
@@ -224,8 +212,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   
   // ion deposition
   
-  for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x)
-  {
+  for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x) {
     // load electron in registers
     p = ions[i];
     // calculate x coordinate of the cell that the electron belongs to
@@ -243,8 +230,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   
   //--- ccc
   
-  if (threadIdx.x < 2)
-  {
+  if (threadIdx.x < 2) {
     sh_partial_rho[threadIdx.x*nnx] += sh_partial_rho[(threadIdx.x+1)*nnx-1];
     sh_partial_rho[(threadIdx.x+1)*nnx-1] = sh_partial_rho[threadIdx.x*nnx];
   }
@@ -252,16 +238,22 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
 
   //---- volume correction
 
-  if (blockDim.x >= 2*nnx)
-  {
-    if (threadIdx.x < 2*nnx)
-    {
-      sh_partial_rho[threadIdx.x] /= ds*ds*ds;
+  if (blockIdx.x == 0) {
+    for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
+      sh_partial_rho[i] /= ds*ds*ds*0.5;
     }
-  } else
-  {
-    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
-    {
+    for (int i = threadIdx.x; (i >= nnx) && (i < nnx); i+=blockDim.x) {
+      sh_partial_rho[i] /= ds*ds*ds;
+    }
+  } else if (blockIdx.x == blockDim.x-1) {
+    for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
+      sh_partial_rho[i] /= ds*ds*ds;
+    }
+    for (int i = threadIdx.x; (i >= nnx) && (i < nnx); i+=blockDim.x) {
+      sh_partial_rho[i] /= ds*ds*ds*0.5;
+    }
+  } else {
+    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
       sh_partial_rho[i] /= ds*ds*ds;
     }
   }
@@ -269,18 +261,9 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   
   //---- acumulation of charge
   
-  if (blockDim.x >= 2*nnx)
-  {
-    if (threadIdx.x < 2*nnx)
-    {
-      atomicAdd(rho+blockIdx.x*nnx+threadIdx.x, sh_partial_rho[threadIdx.x]);
-    }
-  } else
-  {
-    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
-    {
-      atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
-    }
+
+  for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
+    atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
   }
   __syncthreads();
   
