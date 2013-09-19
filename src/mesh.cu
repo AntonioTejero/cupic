@@ -142,7 +142,7 @@ void field_solver(double *d_phi, double *d_Ex, double *d_Ey)
   blockdim.y = 512/nnx;
   griddim = (nny-2)/blockdim.y;
   
-  // define size of shared memory for jacobi_iteration kernel
+  // define size of shared memory for field_derivation kernel
   sh_mem_size = blockdim.x*(blockdim.y+2)*sizeof(double);
   
   // launch kernel for performing the derivation of the potential to obtain the electric field
@@ -241,12 +241,29 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   }
   __syncthreads();
   
-  // ccc
+  //--- ccc
   
   if (threadIdx.x < 2)
   {
     sh_partial_rho[threadIdx.x*nnx] += sh_partial_rho[(threadIdx.x+1)*nnx-1];
     sh_partial_rho[(threadIdx.x+1)*nnx-1] = sh_partial_rho[threadIdx.x*nnx];
+  }
+  __syncthreads();
+
+  //---- volume correction
+
+  if (blockDim.x >= 2*nnx)
+  {
+    if (threadIdx.x < 2*nnx)
+    {
+      sh_partial_rho[threadIdx.x] /= ds*ds*ds;
+    }
+  } else
+  {
+    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x)
+    {
+      sh_partial_rho[i] /= ds*ds*ds;
+    }
   }
   __syncthreads();
   
