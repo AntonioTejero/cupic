@@ -44,7 +44,7 @@ clean :
 	clear
 
 open :
-	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu particles.h particles.cu diagnostic.h diagnostic.cu cuda.h cuda.cu makefile &
+	kate stdh.h main.cu init.h init.cu cc.h cc.cu mesh.h mesh.cu particles.h particles.cu diagnostic.h diagnostic.cu cuda.h cuda.cu makefile ../input/input_data &
 	
 lines :
 	git ls-files | xargs wc -l
