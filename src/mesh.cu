@@ -209,6 +209,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
     atomicAdd(sh_partial_rho+ic+nnx, -(1.0-distx)*disty);    //top left vertex
     atomicAdd(sh_partial_rho+ic+nnx+1, -distx*disty);        //top right vertex
   }
+  __syncthreads();
   
   // ion deposition
   
@@ -261,7 +262,6 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   
   //---- acumulation of charge
   
-
   for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
     atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
   }
