@@ -19,6 +19,12 @@
 #include "dynamic_sh_mem.h"
 #include "cuda.h"
 
+/************************ SIMBOLIC CONSTANTS *************************/
+
+#define CST_ME 9.109e-31      // electron mass (kg)
+#define CST_E 1.602e-19       // electron charge (C)
+#define CST_KB 1.381e-23      // boltzmann constant (m^2 kg s^-2 K^-1)
+#define CST_EPSILON 8.854e-12 // free space electric permittivity (s^2 C^2 m^-3 kg^-1)
 
 /************************ FUNCTION PROTOTIPES ************************/
 
@@ -26,7 +32,7 @@
 void init_dev(void);
 void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm);
 
-void read_input_file(double *qi, double *qe, double *mi, double *me, double *kti, double *kte, double *phi_p, double *n, double *Lx, double *Ly, double *ds, double *dt, double *epsilon0);
+void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, double *Lx, double *Ly, double *ds, double *dt);
 
 double init_qi(void);
 double init_qe(void);
@@ -47,6 +53,7 @@ int init_ncx(void);
 int init_ncy(void);
 int init_nnx(void);
 int init_nny(void);
+double init_Dl(void);
 
 // device kernels
 __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy);

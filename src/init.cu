@@ -228,7 +228,7 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
 
 /**********************************************************/
 
-void read_input_file(double *qi, double *qe, double *mi, double *me, double *kti, double *kte, double *phi_p, double *n, double *Lx, double *Ly, double *ds, double *dt, double *epsilon0)
+void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, double *Lx, double *Ly, double *ds, double *dt)
 {
   // function variables
   ifstream myfile;
@@ -240,25 +240,17 @@ void read_input_file(double *qi, double *qe, double *mi, double *me, double *kti
   {
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "q_i = %lf \n", qi);
+    sscanf (line, "ne = %lf \n", ne);
     myfile.getline (line, 80);
-    sscanf (line, "q_e = %lf \n", qe);
+    sscanf (line, "Te = %lf \n", Te);
     myfile.getline (line, 80);
-    sscanf (line, "m_i = %lf \n", mi);
+    sscanf (line, "beta = %lf \n", beta);
     myfile.getline (line, 80);
-    sscanf (line, "m_e = %lf \n", me);
-    myfile.getline (line, 80);
-    sscanf (line, "kT_i = %lf \n", kti);
-    myfile.getline (line, 80);
-    sscanf (line, "kT_e = %lf \n", kte);
+    sscanf (line, "gamma = %lf \n", gamma);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
-    sscanf (line, "phi_p = %lf \n", phi_p);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "n = %lf \n", n);
+    sscanf (line, "phi_p = %lf \n", pot);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     myfile.getline (line, 80);
@@ -271,10 +263,6 @@ void read_input_file(double *qi, double *qe, double *mi, double *me, double *kti
     myfile.getline (line, 80);
     myfile.getline (line, 80);
     sscanf (line, "dt = %lf \n", dt);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "epsilon0 = %lf \n", epsilon0);
   } else
   {
     cout << "input data file could not be opened" << endl;
@@ -289,13 +277,10 @@ void read_input_file(double *qi, double *qe, double *mi, double *me, double *kti
 double init_qi(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  
-  return qi;
+  return 1.0;
 }
 
 /**********************************************************/
@@ -303,13 +288,10 @@ double init_qi(void)
 double init_qe(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  
-  return qe;
+  return -1.0;
 }
 
 /**********************************************************/
@@ -317,13 +299,14 @@ double init_qe(void)
 double init_mi(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  
+  double ne, Te, beta, pot, Lx, Ly, ds, dt;
+  static double gamma = 0.0;
+
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (gamma == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
-  return mi;
+  return gamma;
 }
 
 /**********************************************************/
@@ -331,13 +314,10 @@ double init_mi(void)
 double init_me(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  
-  return me;
+  return 1.0;
 }
 
 /**********************************************************/
@@ -345,13 +325,14 @@ double init_me(void)
 double init_kti(void) 
 { 
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, gamma, pot, Lx, Ly, ds, dt;
+  static double beta = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (beta == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
-  return kti;
+  return beta;
 }
 
 /**********************************************************/
@@ -359,13 +340,10 @@ double init_kti(void)
 double init_kte(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  
-  return kte;
+  return 1.0;
 }
 
 /**********************************************************/
@@ -373,11 +351,15 @@ double init_kte(void)
 double init_phi_p(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static double phi_p = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (phi_p == 0.0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    phi_p = pot*CST_E/(CST_KB*Te);
+  }
   
   return phi_p;
 }
@@ -387,11 +369,16 @@ double init_phi_p(void)
 double init_n(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static const double Dl = init_Dl();
+  static double n = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (n == 0.0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    n = ne*Dl*Dl*Dl;
+  }
   
   return n;
 }
@@ -401,11 +388,12 @@ double init_n(void)
 double init_Lx(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  
+  double ne, Te, beta, gamma, pot, Ly, ds, dt;
+  static double Lx = 0.0;
+
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (Lx == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
   return Lx;
 }
@@ -415,11 +403,12 @@ double init_Lx(void)
 double init_Ly(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, beta, gamma, pot, Lx, ds, dt;
+  static double Ly = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (Ly == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
   return Ly;
 }
@@ -429,11 +418,12 @@ double init_Ly(void)
 double init_ds(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, beta, gamma, pot, Lx, Ly, dt;
+  static double ds = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (ds == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
   return ds;
 }
@@ -443,11 +433,12 @@ double init_ds(void)
 double init_dt(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds;
+  static double dt = 0.0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (dt == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
   
   return dt;
 }
@@ -457,11 +448,19 @@ double init_dt(void)
 double init_epsilon0(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static const double Dl = init_Dl();
+  static double epsilon0 = 0.0;
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
+  if (epsilon0 == 0.0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    epsilon0 = CST_EPSILON;
+    epsilon0 /= pow(Dl*sqrt(CST_ME/(CST_KB*Te)),2); // time units
+    epsilon0 /= CST_E*CST_E;                        // charge units
+    epsilon0 *= Dl*Dl*Dl;                           // length units
+    epsilon0 *= CST_ME;                             // mass units
+  }
   
   return epsilon0;
 }
@@ -471,13 +470,15 @@ double init_epsilon0(void)
 int init_ncx(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  int ncx;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static int ncx = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  ncx = int(Lx/ds);
+  if (ncx == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    ncx = int(Lx/ds);
+  }
   
   return ncx;
 }
@@ -487,13 +488,15 @@ int init_ncx(void)
 int init_ncy(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  int ncy;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static int ncy = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  ncy = int(Ly/ds);
+  if (ncy == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    ncy = int(Ly/ds);
+  }
   
   return ncy;
 }
@@ -503,13 +506,15 @@ int init_ncy(void)
 int init_nnx(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  int nnx;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static int nnx = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  nnx = int(Lx/ds)+1;
+  if (nnx == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    nnx = int(Lx/ds)+1;
+  }
   
   return nnx;
 }
@@ -519,13 +524,15 @@ int init_nnx(void)
 int init_nny(void) 
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  int nny;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static int nny = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  nny = int(Ly/ds)+1;
+  if (nny == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    nny = int(Ly/ds)+1;
+  }
   
   return nny;
 }
@@ -535,13 +542,16 @@ int init_nny(void)
 double init_dtin_i(void)
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  double dtin_i;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static const double n = init_n();
+  static double dtin_i = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  dtin_i = sqrt(2.0*PI*mi/kti)/(n*Lx*ds);
+  if (dtin_i == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    dtin_i = sqrt(2.0*PI*gamma/beta)/(n*Lx*ds);
+  }
   
   return dtin_i;
 }
@@ -551,20 +561,39 @@ double init_dtin_i(void)
 double init_dtin_e(void)
 {
   // function variables
-  double qi, qe, mi, me, kti, kte, phi_p, n, Lx, Ly, ds, dt, epsilon0;
-  double dtin_e;
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static const double n = init_n();
+  static double dtin_e = 0;
   
   // function body
   
-  read_input_file(&qi, &qe, &mi, &me, &kti, &kte, &phi_p, &n, &Lx, &Ly, &ds, &dt, &epsilon0);
-  dtin_e = sqrt(2.0*PI*me/kte)/(n*Lx*ds);
+  if (dtin_e == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    dtin_e = sqrt(2.0*PI)/(n*Lx*ds);
+  }
   
   return dtin_e;
 }
 
 /**********************************************************/
 
+double init_Dl(void)
+{
+  // function variables
+  double ne, Te, beta, gamma, pot, Lx, Ly, ds, dt;
+  static double Dl = 0;
+  
+  // function body
+  
+  if (Dl == 0) {
+    read_input_file(&ne, &Te, &beta, &gamma, &pot, &Lx, &Ly, &ds, &dt);
+    Dl = sqrt(CST_EPSILON*CST_KB*Te/(ne*CST_E*CST_E));
+  }
+  
+  return Dl;
+}
 
+/**********************************************************/
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 

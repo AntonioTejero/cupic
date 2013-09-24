@@ -1,24 +1,16 @@
-#particle properties
-q_i = 1.0;
-q_e = -1.0;
-m_i = 1.0e3;
-m_e = 1.0;
-kT_i = 1.0e-2;
-kT_e = 1.0;
+#plasma properies
+ne = 1.1e14;
+Te = 1.0e3;
+beta = 1.0e-1;
+gamma = 1.0e3;
 
 #probe properties
-phi_p = -1.0e1;
+phi_p = -5.0e0;
 
-#plasma properies
-n = 1.0e8;
-
-#mesh properties of the simulation
-Lx = 1.27e0;
-Ly = 2.5e-1;
-ds = 1.0e-2;
+#geometric properties of the simulation
+Lx = 1.27e1;
+Ly = 1.025e2;
+ds = 1.0e-1;
 
 #time variables
 dt = 1.0e-3;
-
-#electromagnetic properties
-epsilon0 = 7143.368;
