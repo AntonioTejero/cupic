@@ -116,6 +116,7 @@ void mesh_snapshot(double *d_m, string filename)
     {
       file << i << " " << j << " " << h_m[i+j*nnx] << endl;
     }
+    file << endl;
   }
   
   file.close();
