@@ -57,7 +57,7 @@ int main (int argc, const char* argv[])
       charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
       
       // solve poisson equation
-      poisson_solver(1.0e-12, d_rho, d_phi);
+      poisson_solver(1.0e-3, d_rho, d_phi);
       
       // derive electric fields from potential
       field_solver(d_phi, d_Ex, d_Ey);
