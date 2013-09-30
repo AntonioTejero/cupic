@@ -128,61 +128,57 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
   //---- initialize shared memory variables
   
   // load Fields from global memory
-  for (int i = threadIdx.x; i < 2*nnx; i += blockDim.x) 
-  {
+  for (int i = threadIdx.x; i < 2*nnx; i += blockDim.x) {
     sh_Ex[i] = g_Ex[blockIdx.x*nnx+i];
     sh_Ey[i] = g_Ey[blockIdx.x*nnx+i];
   }
   __syncthreads();
   
   // load bin bookmarks from global memory
-  if (threadIdx.x < 2)
-  {
+  if (threadIdx.x < 2) {
     sh_bm[threadIdx.x] = g_bm[blockIdx.x*2+threadIdx.x];
   }
   __syncthreads();
   
   //---- Process batches of particles
-  
-  for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x)
-  {
-    // load particle in registers
-    p = g_p[i];
-    // calculate x coordinate of the cell that the particle belongs to
-    ic = int(p.x/ds);
-    // calculate distances from particle to down left vertex of the cell (normalized)
-    distx = fabs(double(ic*ds)-p.x)/ds;
-    disty = fabs(double(blockDim.x*ds)-p.y)/ds;
-    // acumulate fields from vertex of the cell to particle position
-    if (q == +1)
-    {
-      // x component of force
-      Fx = sh_Ex[ic]*(1.0-distx)*(1.0-disty);
-      Fx += sh_Ex[ic+1]*distx*(1.0-disty);
-      Fx += sh_Ex[ic+nnx]*(1.0-distx)*disty;
-      Fx += sh_Ex[ic+nnx+1]*distx*disty;
-      // y component of force
-      Fy = sh_Ey[ic]*(1.0-distx)*(1.0-disty);
-      Fy += sh_Ey[ic+1]*distx*(1.0-disty);
-      Fy += sh_Ey[ic+nnx]*(1.0-distx)*disty;
-      Fy += sh_Ey[ic+nnx+1]*distx*disty;
+  if (sh_bm[0] >= 0 && sh_bm[1] >= 0) {
+    for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x) {
+      // load particle in registers
+      p = g_p[i];
+      // calculate x coordinate of the cell that the particle belongs to
+      ic = int(p.x/ds);
+      // calculate distances from particle to down left vertex of the cell (normalized)
+      distx = fabs(double(ic*ds)-p.x)/ds;
+      disty = fabs(double(blockDim.x*ds)-p.y)/ds;
+      // acumulate fields from vertex of the cell to particle position
+      if (q == +1) {
+        // x component of force
+        Fx = sh_Ex[ic]*(1.0-distx)*(1.0-disty);
+        Fx += sh_Ex[ic+1]*distx*(1.0-disty);
+        Fx += sh_Ex[ic+nnx]*(1.0-distx)*disty;
+        Fx += sh_Ex[ic+nnx+1]*distx*disty;
+        // y component of force
+        Fy = sh_Ey[ic]*(1.0-distx)*(1.0-disty);
+        Fy += sh_Ey[ic+1]*distx*(1.0-disty);
+        Fy += sh_Ey[ic+nnx]*(1.0-distx)*disty;
+        Fy += sh_Ey[ic+nnx+1]*distx*disty;
+      }
+      else if (q == -1) {
+        // x component of force
+        Fx = -sh_Ex[ic]*(1.0-distx)*(1.0-disty);
+        Fx -= sh_Ex[ic+1]*distx*(1.0-disty);
+        Fx -= sh_Ex[ic+nnx]*(1.0-distx)*disty;
+        Fx -= sh_Ex[ic+nnx+1]*distx*disty;
+        // y component of force
+        Fy = -sh_Ey[ic]*(1.0-distx)*(1.0-disty);
+        Fy -= sh_Ey[ic+1]*distx*(1.0-disty);
+        Fy -= sh_Ey[ic+nnx]*(1.0-distx)*disty;
+        Fy -= sh_Ey[ic+nnx+1]*distx*disty;
+      }
+      // Store forces in global memory
+      g_Fx[i] = Fx;
+      g_Fy[i] = Fy;
     }
-    else if (q == -1)
-    {
-      // x component of force
-      Fx = -sh_Ex[ic]*(1.0-distx)*(1.0-disty);
-      Fx -= sh_Ex[ic+1]*distx*(1.0-disty);
-      Fx -= sh_Ex[ic+nnx]*(1.0-distx)*disty;
-      Fx -= sh_Ex[ic+nnx+1]*distx*disty;
-      // y component of force
-      Fy = -sh_Ey[ic]*(1.0-distx)*(1.0-disty);
-      Fy -= sh_Ey[ic+1]*distx*(1.0-disty);
-      Fy -= sh_Ey[ic+nnx]*(1.0-distx)*disty;
-      Fy -= sh_Ey[ic+nnx+1]*distx*disty;
-    }
-    // Store forces in global memory
-    g_Fx[i] = Fx;
-    g_Fy[i] = Fy;
   }
   
   return;
@@ -206,29 +202,29 @@ __global__ void leap_frog_step(double dt, double m, particle *g_p, int *g_bm, do
   //---- initialize shared memory variables
   
   // load bin bookmarks from global memory
-  if (threadIdx.x < 2)
-  {
+  if (threadIdx.x < 2) {
     sh_bm[threadIdx.x] = g_bm[blockIdx.x*2+threadIdx.x];
   }
   __syncthreads();
   
   //---- Process batches of particles
-  
-  for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x)
-  {
-    // load particle data in registers
-    p = g_p[i];
-    Fx = g_Fx[i];
-    Fy = g_Fy[i];
-    
-    // move particle
-    p.vx += dt*Fx/m;
-    p.vy += dt*Fy/m;
-    p.x += dt*p.vx;
-    p.y += dt*p.vy;
-    
-    // store particle data in global memory
-    g_p[i] = p;
+
+  if (sh_bm[0] >= 0 && sh_bm[1] >= 0) {
+    for (int i = sh_bm[0]+threadIdx.x; i <= sh_bm[1]; i += blockDim.x) {
+      // load particle data in registers
+      p = g_p[i];
+      Fx = g_Fx[i];
+      Fy = g_Fy[i];
+      
+      // move particle
+      p.vx += dt*Fx/m;
+      p.vy += dt*Fy/m;
+      p.x += dt*p.vx;
+      p.y += dt*p.vy;
+      
+      // store particle data in global memory
+      g_p[i] = p;
+    }
   }
   
   return;
