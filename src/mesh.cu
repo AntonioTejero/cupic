@@ -194,38 +194,42 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   //--- deposition of charge
   
   // electron deposition
-  
-  for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x) {
-    // load electron in registers
-    p = elec[i];
-    // calculate x coordinate of the cell that the electron belongs to
-    ic = int(p.x/ds);
-    // calculate distances from particle to down left vertex of the cell
-    distx = fabs(double(ic*ds)-p.x)/ds;
-    disty = fabs(double(jc*ds)-p.y)/ds;
-    // acumulate charge in partial rho
-    atomicAdd(sh_partial_rho+ic, -(1.0-distx)*(1.0-disty));  //down left vertex
-    atomicAdd(sh_partial_rho+ic+1, -distx*(1.0-disty));      //down right vertex
-    atomicAdd(sh_partial_rho+ic+nnx, -(1.0-distx)*disty);    //top left vertex
-    atomicAdd(sh_partial_rho+ic+nnx+1, -distx*disty);        //top right vertex
+
+  if (sh_e_bm[0] >= 0 && sh_e_bm[1] >= 0) {
+    for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x) {
+      // load electron in registers
+      p = elec[i];
+      // calculate x coordinate of the cell that the electron belongs to
+      ic = int(p.x/ds);
+      // calculate distances from particle to down left vertex of the cell
+      distx = fabs(double(ic*ds)-p.x)/ds;
+      disty = fabs(double(jc*ds)-p.y)/ds;
+      // acumulate charge in partial rho
+      atomicAdd(sh_partial_rho+ic, -(1.0-distx)*(1.0-disty));  //down left vertex
+      atomicAdd(sh_partial_rho+ic+1, -distx*(1.0-disty));      //down right vertex
+      atomicAdd(sh_partial_rho+ic+nnx, -(1.0-distx)*disty);    //top left vertex
+      atomicAdd(sh_partial_rho+ic+nnx+1, -distx*disty);        //top right vertex
+    }
   }
   __syncthreads();
   
   // ion deposition
-  
-  for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x) {
-    // load electron in registers
-    p = ions[i];
-    // calculate x coordinate of the cell that the electron belongs to
-    ic = int(p.x/ds);
-    // calculate distances from particle to down left vertex of the cell
-    distx = fabs(double(ic*ds)-p.x)/ds;
-    disty = fabs(double(jc*ds)-p.y)/ds;
-    // acumulate charge in partial rho
-    atomicAdd(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
-    atomicAdd(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
-    atomicAdd(sh_partial_rho+ic+nnx, (1.0-distx)*disty);    //top left vertex
-    atomicAdd(sh_partial_rho+ic+nnx+1, distx*disty);        //top right vertex
+
+  if (sh_i_bm[0] >= 0 && sh_i_bm[1] >= 0) {
+    for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x) {
+      // load electron in registers
+      p = ions[i];
+      // calculate x coordinate of the cell that the electron belongs to
+      ic = int(p.x/ds);
+      // calculate distances from particle to down left vertex of the cell
+      distx = fabs(double(ic*ds)-p.x)/ds;
+      disty = fabs(double(jc*ds)-p.y)/ds;
+      // acumulate charge in partial rho
+      atomicAdd(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
+      atomicAdd(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
+      atomicAdd(sh_partial_rho+ic+nnx, (1.0-distx)*disty);    //top left vertex
+      atomicAdd(sh_partial_rho+ic+nnx+1, distx*disty);        //top right vertex
+    }
   }
   __syncthreads();
   
