@@ -21,6 +21,7 @@ int number_of_particles(int *d_bm)
   
   cudaError_t cuError;
   int h_bm[2*ncy];
+  int ini, fin;
   
   // device memory
   
@@ -30,8 +31,16 @@ int number_of_particles(int *d_bm)
   // copy vector of bookmarks from device to host
   cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
   cu_check(cuError, __FILE__, __LINE__);
+
+  // evaluate number of particles
+  ini = 2*ncy-1;
+  fin = 0;
+
+  while (h_bm[fin] < 0 && fin > 0) fin -= 2;
+  while (h_bm[ini] < 0 && ini < fin) ini += 2;
   
-  return h_bm[2*ncy-1]-h_bm[0]+1;
+  if (ini > fin) return 0;
+  else return h_bm[fin]-h_bm[ini]+1;
 }
 
 
