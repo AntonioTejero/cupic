@@ -107,7 +107,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cudaGetLastError();
   pRebracketing<<<griddim, blockdim>>>(bm, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
-  
+  //-------------------------------------------------> VOY POR AQUÍ HAY QUE AÑADIR UNA FUNCIÓN QUE MANEJE LOS BOOKMARKS NEGATIVOS
   return;
 }
 
@@ -293,119 +293,141 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
   //---- initialize shared memory
   
   // load bin bookmarks
-  if (tid < 2) {
-    sh_bm[tid] = g_new_bm[bid*2+tid];
-  }
-  
-  // initialize batch parameters
-  if (0 == tid) {
-    N = sh_bm[1]-sh_bm[0]+1;
+  if (tid < 2) sh_bm[tid] = g_new_bm[bid*2+tid];
+  __syncthreads();
+
+  // evaluate number of particles in the bin
+  if (tid == 0) {
+    if (sh_bm[0] >= 0 && sh_bm[1] >= 0) N = sh_bm[1]-sh_bm[0]+1;
+    else N = 0;
     tpb = (int) blockDim.x;
-    while (N < 2*tpb) {
-      tpb /= 2;
-    }
-    tail = 0;
-    i = sh_bm[0];
-    i_shifted = i + tpb;
-    N = 0;
   }
   __syncthreads();
 
-  //---- cleanup first batch of "-" particles
+  //---- case selection
 
-  // load register batch
-  if (tid < tpb) {
-    reg_p = g_p[i+tid];
-  }
-
-  for (int count = 0; N < tpb; count++, __syncthreads()) {
-    // load shared memory batch
-    if (tid < tpb) {
-      sh_p[tid] = g_p[i_shifted+tid+count*tpb];
-    }
-    __syncthreads();
-    // analize register batch
-    if (tid < tpb) {
-      if (__double2int_rd(reg_p.y/ds) < bid) {
-        do {
-          swap_index = atomicAdd(&tail, 1);
-          if (swap_index >= tpb) break;
-        } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
-        if (swap_index >= tpb) continue;
-        tmp_p = reg_p;
-        reg_p = sh_p[swap_index];
-        sh_p[swap_index] = tmp_p;
+  if (N > tpb) {
+    // initialize batch parameters
+    if (0 == tid) {
+      while (N < 2*tpb) {
+        tpb /= 2;
       }
-      atomicAdd(&N, 1);
-    }
-  }
-
-  // store results in global memory
-  if (tid < tpb) {
-    g_p[i_shifted+tid] = sh_p[tid];
-  }
-  __syncthreads();
-  if (tid < tpb) {
-    g_p[i+tid] = reg_p;
-  }
-  __syncthreads();
-
-  // reset tail parameter
-  if (0 == tid) {
-    tail = 0;
-  }
-
-  //---- start "-" defrag
-  
-  while (i_shifted <= sh_bm[1]) {
-    // load shared batch
-    if (tid < tpb) {
-      sh_p[tid] = g_p[i+tid];
+      tail = 0;
+      i = sh_bm[0];
+      i_shifted = i + tpb;
+      N = 0;
     }
     __syncthreads();
-
-    // load, analize and swap register batch
-    if (tid < tpb) {
-      if (i_shifted+tid <= sh_bm[1]) {
-        reg_p = g_p[i_shifted+tid];
+    
+    //---- cleanup first batch of "-" particles
+    
+    // load register batch
+    if (tid < tpb) reg_p = g_p[i+tid];
+    
+    for (int count = 0; N < tpb; count++, __syncthreads()) {
+      // load shared memory batch
+      if (tid < tpb) sh_p[tid] = g_p[i_shifted+tid+count*tpb];
+      __syncthreads();
+      // analize register batch
+      if (tid < tpb) {
         if (__double2int_rd(reg_p.y/ds) < bid) {
-          swap_index = atomicAdd(&tail, 1);
+          do {
+            swap_index = atomicAdd(&tail, 1);
+            if (swap_index >= tpb) break;
+          } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
+          if (swap_index >= tpb) continue;
           tmp_p = reg_p;
           reg_p = sh_p[swap_index];
           sh_p[swap_index] = tmp_p;
         }
+        atomicAdd(&N, 1);
       }
     }
-    __syncthreads();
-
+    
     // store results in global memory
     if (tid < tpb) {
-      g_p[i+tid] = sh_p[tid];
+      g_p[i_shifted+tid] = sh_p[tid];
+      g_p[i+tid] = reg_p;
     }
     __syncthreads();
-
-    if (tid < tpb) {
-      if (i_shifted+tid <= sh_bm[1]) {
-        g_p[i_shifted+tid] = reg_p;
+    
+    // reset tail parameter
+    if (0 == tid) tail = 0;
+    
+    //---- start "-" defrag
+    
+    while (i_shifted <= sh_bm[1]) {
+      // load shared batch
+      if (tid < tpb) sh_p[tid] = g_p[i+tid];
+      __syncthreads();
+      
+      // load, analize and swap register batch
+      if (tid < tpb) {
+        if (i_shifted+tid <= sh_bm[1]) {
+          reg_p = g_p[i_shifted+tid];
+          if (__double2int_rd(reg_p.y/ds) < bid) {
+            swap_index = atomicAdd(&tail, 1);
+            tmp_p = reg_p;
+            reg_p = sh_p[swap_index];
+            sh_p[swap_index] = tmp_p;
+          }
+        }
       }
+      __syncthreads();
+      
+      // store results in global memory
+      if (tid < tpb) {
+        g_p[i+tid] = sh_p[tid];
+        if (i_shifted+tid <= sh_bm[1]) g_p[i_shifted+tid] = reg_p; 
+      }
+      
+      // actualize batch parameters
+      if (0 == tid) {
+        i += tail;
+        i_shifted += tpb;
+        tail = 0;
+      }
+      __syncthreads();
     }
-
-    // actualize batch parameters
-    if (0 == tid) {
-      i += tail;
-      i_shifted += tpb;
-      tail = 0;
+    
+    //---- store new left bookmark in global memory
+    
+    if (0 == tid) g_new_bm[bid*2] = i;
+    
+    return;
+  }
+  else if (N > 0) {
+    // load batch parameters
+    if (tid == 0) tail = 0;
+    __syncthreads();
+    
+    // load whole bin in registers
+    if (tid < N) reg_p = g_p[sh_bm[0]+tid];
+    
+    // analize and swap whole bin
+    if (__double2int_rd(reg_p.y/ds) < bid) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
     }
     __syncthreads();
+    
+    // store new left bookmark global memory
+    if (0 == tid) g_new_bm[bid*2] = sh_bm[0]+tail;
+    __syncthreads();
+    
+    // swap "=" and "+" particles
+    if (__double2int_rd(reg_p.y/ds) >= bid) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
+    }
+    __syncthreads();
+    
+    // store particle batch in global memory
+    if (tid < N) g_p[sh_bm[0]+tid] = sh_p[tid];
+    
+    return;
   }
-  
-  //---- store new left bookmarks in global memory
-
-  if (0 == tid) {
-    g_new_bm[bid*2] = i;
-  }
-  
-  return;
+  else return;
 }
 
 /**********************************************************/
@@ -426,122 +448,147 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
   int bid = (int) blockIdx.x;
   
   /*--------------------------- kernel body ----------------------------*/
-  
+
   //---- initialize shared memory
   
   // load bin bookmarks
-  if (tid < 2) {
-    sh_bm[tid] = g_new_bm[bid*2+tid];
-  }
+  if (tid < 2) sh_bm[tid] = g_new_bm[bid*2+tid];
+  __syncthreads();
   
-  // initialize batch parameters
-  if (0 == tid) {
-    N = sh_bm[1]-sh_bm[0]+1;
+  // evaluate number of particles in the bin
+  if (tid == 0) {
+    if (sh_bm[0] >= 0 && sh_bm[1] >= 0) N = sh_bm[1]-sh_bm[0]+1;
+    else N = 0;
     tpb = (int) blockDim.x;
-    while (N < 2*tpb) {
-      tpb /= 2;
-    }
-    tail = 0;
-    i = sh_bm[1];
-    i_shifted = i - tpb;
-    N = 0;
   }
   __syncthreads();
   
-  //---- cleanup last batch of "+" particles
-
-  // load register batch
-  if (tid < tpb) {
-    reg_p = g_p[i-tid];
-  }
+  //---- case selection
   
-  for (int count = 0; N < tpb; count++, __syncthreads()) {
-    // load shared memory batch
-    if (tid < tpb) {
-      sh_p[tid] = g_p[i_shifted-tid-count*tpb];
-    }
-    __syncthreads();
-    // analize register batch
-    if (tid < tpb) {
-      if (__double2int_rd(reg_p.y/ds) > bid) {
-        do {
-          swap_index = atomicAdd(&tail, 1);
-          if (swap_index >= tpb) break;
-        } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
-        if (swap_index >= tpb) continue;
-        tmp_p = reg_p;
-        reg_p = sh_p[swap_index];
-        sh_p[swap_index] = tmp_p;
+  if (N > tpb) {
+    // initialize batch parameters
+    if (0 == tid) {
+      while (N < 2*tpb) {
+        tpb /= 2;
       }
-      atomicAdd(&N, 1);
-    }
-  }
-  
-  // store results in global memory
-  if (tid < tpb) {
-    g_p[i_shifted-tid] = sh_p[tid];
-  }
-  __syncthreads();
-  if (tid < tpb) {
-    g_p[i-tid] = reg_p;
-  }
-  __syncthreads();
-  
-  // reset tail parameter
-  if (0 == tid) {
-    tail = 0;
-  }
-  
-  //---- start "+" defrag
-  
-  while (i_shifted >= sh_bm[0]) {
-    // load shared batch
-    if (tid < tpb) {
-      sh_p[tid] = g_p[i-tid];
+      tail = 0;
+      i = sh_bm[1];
+      i_shifted = i - tpb;
+      N = 0;
     }
     __syncthreads();
     
-    // load, analize and swap register batch
-    if (tid < tpb) {
-      if (i_shifted-tid >= sh_bm[0]) {
-        reg_p = g_p[i_shifted-tid];
+    //---- cleanup last batch of "+" particles
+    
+    // load register batch
+    if (tid < tpb) reg_p = g_p[i-tid];
+    
+    for (int count = 0; N < tpb; count++, __syncthreads()) {
+      // load shared memory batch
+      if (tid < tpb) sh_p[tid] = g_p[i_shifted-tid-count*tpb];
+      __syncthreads();
+      // analize register batch
+      if (tid < tpb) {
         if (__double2int_rd(reg_p.y/ds) > bid) {
-          swap_index = atomicAdd(&tail, 1);
+          do {
+            swap_index = atomicAdd(&tail, 1);
+            if (swap_index >= tpb) break;
+          } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
+          if (swap_index >= tpb) continue;
           tmp_p = reg_p;
           reg_p = sh_p[swap_index];
           sh_p[swap_index] = tmp_p;
         }
+        atomicAdd(&N, 1);
       }
     }
-    __syncthreads();
     
     // store results in global memory
     if (tid < tpb) {
-      g_p[i-tid] = sh_p[tid];
+      g_p[i_shifted-tid] = sh_p[tid];
+      g_p[i-tid] = reg_p;
     }
     __syncthreads();
-    if (tid < tpb) {
-      if (i_shifted-tid >= sh_bm[0]) {
-        g_p[i_shifted-tid] = reg_p;
+    
+    // reset tail parameter
+    if (0 == tid) tail = 0;
+    
+    //---- start "+" defrag
+    
+    while (i_shifted >= sh_bm[0]) {
+      // load shared batch
+      if (tid < tpb) sh_p[tid] = g_p[i-tid];
+      __syncthreads();
+      
+      // load, analize and swap register batch
+      if (tid < tpb) {
+        if (i_shifted-tid >= sh_bm[0]) {
+          reg_p = g_p[i_shifted-tid];
+          if (__double2int_rd(reg_p.y/ds) > bid) {
+            swap_index = atomicAdd(&tail, 1);
+            tmp_p = reg_p;
+            reg_p = sh_p[swap_index];
+            sh_p[swap_index] = tmp_p;
+          }
+        }
       }
+      __syncthreads();
+      
+      // store results in global memory
+      if (tid < tpb) {
+        g_p[i-tid] = sh_p[tid];
+        if (i_shifted-tid >= sh_bm[0]) {
+          g_p[i_shifted-tid] = reg_p;
+        }
+      }
+      
+      // actualize batch parameters
+      if (0 == tid) {
+        i -= tail;
+        i_shifted -= tpb;
+        tail = 0;
+      }
+      __syncthreads();
     }
     
-    // actualize batch parameters
-    if (0 == tid) {
-      i -= tail;
-      i_shifted -= tpb;
-      tail = 0;
+    //---- store new right bookmarks in global memory
+    
+    if (0 == tid) g_new_bm[bid*2+1] = i;
+    
+    return;
+  }
+  else if (N > 0) {
+    // load batch parameters
+    if (tid == 0) tail = 0;
+    __syncthreads();
+    
+    // load whole bin in registers
+    if (tid < N) reg_p = g_p[sh_bm[0]+tid];
+    
+    // analize and swap whole bin
+    if (__double2int_rd(reg_p.y/ds) > bid) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
     }
     __syncthreads();
+    
+    // store new left bookmark global memory
+    if (0 == tid) g_new_bm[bid*2+1] = sh_bm[1]-tail;
+    __syncthreads();
+    
+    // swap "=" particles
+    if (__double2int_rd(reg_p.y/ds) = bid) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
+    }
+    __syncthreads();
+    
+    // store particle batch in global memory
+    if (tid < N) g_p[sh_bm[1]-tid] = sh_p[tid];
+    
+    return;
   }
-  
-  //---- store new right bookmarks in global memory
-  
-  if (0 == tid) {
-    g_new_bm[bid*2+1] = i;
-  }
-
-  return;
+  else return;
 }
 
 /**********************************************************/
@@ -566,24 +613,22 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
   //---- initialize shared memory
   
   // load old and new bookmarks from global memory
-  if (tid < 2)
-  {
+  if (tid < 2) {
     sh_old_bm[tid] = bm[1+bid*2+tid];
     sh_new_bm[tid] = new_bm[1+bid*2+tid];
   }
   __syncthreads();
   
-  // set tpb variable and evaluate number of swaps needed for each bin frontier
-  if (tid == 0)
-  {
-    nswaps = ( (sh_old_bm[0]-sh_new_bm[0])<(sh_new_bm[1]-sh_old_bm[1]) ) ? (sh_old_bm[0]-sh_new_bm[0]) : (sh_new_bm[1]-sh_old_bm[1]);
+  // evaluate number of swaps needed for each bin frontier
+  if (tid == 0) {
+    if (sh_old_bm[0] < 0 || sh_old_bm[1] < 0) nswaps = 0;
+    else nswaps = (sh_old_bm[0]-sh_new_bm[0])<(sh_new_bm[1]-sh_old_bm[1]) ? (sh_old_bm[0]-sh_new_bm[0]) : (sh_new_bm[1]-sh_old_bm[1]);
   }
   __syncthreads();
   
-  //---- if number of swaps needed is greater than the number of threads per block:
+  //---- swap particles
   
-  while (nswaps >= tpb)
-  {
+  while (nswaps >= tpb) {
     // swapping of tpb particles
     p_dummy = p[sh_new_bm[0]+stride];
     p[sh_new_bm[0]+stride] = p[sh_new_bm[1]-stride];
@@ -591,8 +636,7 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
     __syncthreads();
     
     // actualize shared new bookmarks
-    if (tid == 0)
-    {
+    if (tid == 0) {
       sh_new_bm[0] += tpb;
       sh_new_bm[1] -= tpb;
       nswaps -= tpb;
@@ -600,13 +644,8 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
     __syncthreads();
   }
   
-  //---- if number of swaps needed is lesser than the number of threads per block:
-  
-  if (nswaps>0)
-  {
-    // swapping nswaps particles (all swaps needed)
-    if (tid<nswaps)
-    {
+  if (nswaps>0) {
+    if (tid<nswaps) {
       p_dummy = p[sh_new_bm[0]+stride];
       p[sh_new_bm[0]+stride] = p[sh_new_bm[1]-stride];
       p[sh_new_bm[1]-stride] = p_dummy;
@@ -614,28 +653,28 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
     __syncthreads();
   }
   
-  //---- evaluate new bookmarks and store in global memory
+  //---- actualize new bookmarks and store in global memory
   
   //actualize shared new bookmarks
-  if (tid == 0)
-  {
-    if ( (sh_old_bm[0]-sh_new_bm[0]) < (sh_new_bm[1]-sh_old_bm[1]))
-    {
-      sh_new_bm[1] -= nswaps;
-      sh_new_bm[0] = sh_new_bm[1]-1;
-    } else
-    {
-      sh_new_bm[0] += nswaps;
-      sh_new_bm[1] = sh_new_bm[0]+1;
+  if (tid == 0) {
+    if (sh_old_bm[0] < 0) {
+      if ((sh_new_bm[1]-sh_old_bm[1]) > 0) sh_new_bm[0] = sh_new_bm[1] - 1;
+    } else if (sh_old_bm[1] < 0) {
+      if ((sh_old_bm[0]-sh_new_bm[0]) > 0) sh_new_bm[1] = sh_new_bm[0] + 1;
+    } else {
+      if ( (sh_old_bm[0]-sh_new_bm[0]) < (sh_new_bm[1]-sh_old_bm[1])) {
+        sh_new_bm[1] -= nswaps;
+        sh_new_bm[0] = sh_new_bm[1]-1;
+      } else {
+        sh_new_bm[0] += nswaps;
+        sh_new_bm[1] = sh_new_bm[0]+1;
+      }
     }
   }
   __syncthreads();
   
-  // store new bookmarks in global memory
-  if (tid < 2)
-  {
-    new_bm[1+bid*2+tid] = sh_new_bm[tid];
-  }
+  // store shared new bookmarks in global memory
+  if (tid < 2) new_bm[1+bid*2+tid] = sh_new_bm[tid];
   __syncthreads();
   
   return;
