@@ -17,6 +17,7 @@
 #include "gslrand.h"
 #include "diagnostic.h"
 #include "cuda.h"
+#include "dynamic_sh_mem.h"
 
 /************************ SIMBOLIC CONSTANTS *************************/
 
@@ -35,7 +36,8 @@ void cyclic_cc(int ncy, double Lx, int *d_bm, particle *d_p);
 // device kernels
 __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p);
 __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p);
-__global__ void pRebracketing(int *bm, int *new_bm, particle *p);
+__global__ void pRebracketing(int *bm, int *new_bm, particle *p, int *n);
+__global__ void bmHandler(int *bm, int *n, int ncy);
 __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p);
 
 #endif 

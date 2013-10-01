@@ -84,11 +84,17 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
 {
   /*--------------------------- function variables -----------------------*/
 
+  // host memory
   dim3 griddim, blockdim;
+  cudaError_t cuError;
+  size_t sh_mem_size;
+
+  // device memory
+  int *n;                   // number of particles that cross each bin frontier
 
   /*----------------------------- function body --------------------------*/
 
-  // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernel
+  // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernels
   griddim = ncy;
   blockdim = BINING_BLOCK_DIM;
   
@@ -99,15 +105,34 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cudaGetLastError();
   pDefragUp<<<griddim, blockdim>>>(ds, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
+
+  // allocate device memory for "n" vector
+  cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
+  cu_check(cuError, __FILE__, __LINE__);
   
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
   
   // execute kernel for rebracketing of particles
   cudaGetLastError();
-  pRebracketing<<<griddim, blockdim>>>(bm, new_bm, p);
+  pRebracketing<<<griddim, blockdim>>>(bm, new_bm, p, n);
+  
   cu_sync_check(__FILE__, __LINE__);
-  //-------------------------------------------------> VOY POR AQUÍ HAY QUE AÑADIR UNA FUNCIÓN QUE MANEJE LOS BOOKMARKS NEGATIVOS
+
+  // handle negative bookmarks and empty bins
+
+  // define size of shared memory for bmHandler kernel
+  sh_mem_size = 4*ncy*sizeof(int);
+  
+  // set dimension of grid of blocks for particle bmHandler kernel
+  griddim = 1;
+  blockdim = ncy;
+  
+  // execute kernel bmHandler
+  cudaGetLastError();
+  bmHandler<<<griddim, blockdim, sh_mem_size>>>(new_bm, n, ncy);
+  cu_sync_check(__FILE__, __LINE__);
+  
   return;
 }
 
@@ -577,7 +602,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     __syncthreads();
     
     // swap "=" particles
-    if (__double2int_rd(reg_p.y/ds) = bid) {
+    if (__double2int_rd(reg_p.y/ds) == bid) {
       swap_index = atomicAdd(&tail, 1);
       sh_p[swap_index] = reg_p;
     }
@@ -593,7 +618,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
 
 /**********************************************************/
 
-__global__ void pRebracketing(int *bm, int *new_bm, particle *p)
+__global__ void pRebracketing(int *bm, int *new_bm, particle *p, int *n)
 {
   /*--------------------------- kernel variables -----------------------*/
   
@@ -658,9 +683,15 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
   //actualize shared new bookmarks
   if (tid == 0) {
     if (sh_old_bm[0] < 0) {
-      if ((sh_new_bm[1]-sh_old_bm[1]) > 0) sh_new_bm[0] = sh_new_bm[1] - 1;
+      if ((sh_new_bm[1]-sh_old_bm[1]) > 0) {
+        sh_new_bm[0] = sh_new_bm[1] - 1;
+        n[1+bid*2] = sh_new_bm[1]-sh_old_bm[1]-1;
+      }
     } else if (sh_old_bm[1] < 0) {
-      if ((sh_old_bm[0]-sh_new_bm[0]) > 0) sh_new_bm[1] = sh_new_bm[0] + 1;
+      if ((sh_old_bm[0]-sh_new_bm[0]) > 0) {
+        sh_new_bm[1] = sh_new_bm[0] + 1;
+        n[bid*2] = sh_old_bm[0]-sh_new_bm[0]-1;
+      }
     } else {
       if ( (sh_old_bm[0]-sh_new_bm[0]) < (sh_new_bm[1]-sh_old_bm[1])) {
         sh_new_bm[1] -= nswaps;
@@ -681,6 +712,48 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p)
 }
 
 /**********************************************************/
+
+__global__ void bmHandler(int *bm, int *n, int ncy)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  int *sh_bm = (int *) sh_mem;        // bookmarks
+  int *sh_n = (int *) &sh_bm[2*ncy];  // number of bin frontier crossings
+
+  // kernel registers
+  int tid = (int) threadIdx.x;
+  int zero = 2*tid;
+  int one = zero+1;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- initialize shared memory
+  sh_bm[tid] = bm[tid];
+  sh_bm[ncy+tid] = bm[ncy+tid];
+  sh_n[tid] = sh_n[tid];
+  sh_n[ncy+tid] = sh_n[ncy+tid];
+  __syncthreads();
+
+  //---- handle bookmarks
+  
+  // bins that runs out of particles
+  if (sh_bm[zero]>0 && sh_bm[one]>0 && sh_bm[one]<sh_bm[zero]) {
+    sh_bm[zero] = -1;
+    sh_bm[one] = -1;
+  }
+  // empty bins that get particles into them
+  if (sh_bm[zero]<0 && sh_bm[one]>=0) sh_bm[zero] = sh_bm[one]-n[one];
+  if (sh_bm[one]<0 && sh_bm[zero]>=0) sh_bm[one] = sh_bm[zero]+n[zero];
+  __syncthreads();
+  
+  //---- store bookmarks in global memory
+  bm[tid] = sh_bm[tid];
+  bm[ncy+tid] = sh_bm[ncy+tid];
+
+  return;
+}
+
 
 __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
 {
