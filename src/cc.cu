@@ -97,15 +97,16 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernels
   griddim = ncy;
   blockdim = BINING_BLOCK_DIM;
-  
+  show_bm(new_bm);
   // execute kernel for defragmentation of particles
   cudaGetLastError();
   pDefragDown<<<griddim, blockdim>>>(ds, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
+  show_bm(new_bm);
   cudaGetLastError();
   pDefragUp<<<griddim, blockdim>>>(ds, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
-
+  show_bm(new_bm);
   // allocate device memory for "n" vector
   cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
@@ -116,9 +117,8 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // execute kernel for rebracketing of particles
   cudaGetLastError();
   pRebracketing<<<griddim, blockdim>>>(bm, new_bm, p, n);
-  
   cu_sync_check(__FILE__, __LINE__);
-
+  show_bm(new_bm);
   // handle negative bookmarks and empty bins
 
   // define size of shared memory for bmHandler kernel
@@ -132,7 +132,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cudaGetLastError();
   bmHandler<<<griddim, blockdim, sh_mem_size>>>(new_bm, n, ncy);
   cu_sync_check(__FILE__, __LINE__);
-  
+  show_bm(new_bm);
   return;
 }
 
@@ -432,8 +432,7 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     if (0 == tid) g_new_bm[bid*2] = i;
     
     return;
-  }
-  else if (N > 0) {
+  } else if (N > 0) {
     // load batch parameters
     if (tid == 0) tail = 0;
     __syncthreads();
@@ -442,9 +441,11 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     if (tid < N) reg_p = g_p[sh_bm[0]+tid];
     
     // analize and swap whole bin
-    if (__double2int_rd(reg_p.y/ds) < bid) {
-      swap_index = atomicAdd(&tail, 1);
-      sh_p[swap_index] = reg_p;
+    if (tid < N) {
+      if (__double2int_rd(reg_p.y/ds) < bid) {
+        swap_index = atomicAdd(&tail, 1);
+        sh_p[swap_index] = reg_p;
+      } 
     }
     __syncthreads();
     
@@ -463,8 +464,7 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     if (tid < N) g_p[sh_bm[0]+tid] = sh_p[tid];
     
     return;
-  }
-  else return;
+  } else return;
 }
 
 /**********************************************************/
@@ -593,8 +593,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     if (0 == tid) g_new_bm[bid*2+1] = i;
     
     return;
-  }
-  else if (N > 0) {
+  } else if (N > 0) {
     // load batch parameters
     if (tid == 0) tail = 0;
     __syncthreads();
@@ -603,9 +602,11 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     if (tid < N) reg_p = g_p[sh_bm[0]+tid];
     
     // analize and swap whole bin
-    if (__double2int_rd(reg_p.y/ds) > bid) {
-      swap_index = atomicAdd(&tail, 1);
-      sh_p[swap_index] = reg_p;
+    if (tid < N) {
+      if (__double2int_rd(reg_p.y/ds) > bid) {
+        swap_index = atomicAdd(&tail, 1);
+        sh_p[swap_index] = reg_p;
+      }
     }
     __syncthreads();
     
