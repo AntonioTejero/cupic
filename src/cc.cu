@@ -155,7 +155,9 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
   double fvt = t+0.5*dt;                  //
   
   int in = 0;                             // number of particles added at plasma frontier
-  int out_l, out_r;                       // number of particles withdrawn at the probe (l) and the plasma (r)
+  int out_l = 0, out_r = 0;               // number of particles withdrawn at the probe (l) and the plasma (r)
+  int ilo = 0;                            // first occupied bin (left index)
+  int iro = 2*ncy-1;                      // last occupied bin (right index)
   
   int h_bm[2*ncy], h_new_bm[2*ncy];       // host particle bookmarks
   int length;                             // length of new particle vectors
@@ -184,16 +186,21 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
   if((*tin) < fpt) in = 1 + int((fpt-(*tin))/dtin);
   
   // calculate number of particles that flow out of the simulation
-  out_l = h_new_bm[0]-h_bm[0];
-  out_r = h_bm[2*ncy-1]-h_new_bm[2*ncy-1];
+  if (h_bm[0] >= 0) {
+    while (h_new_bm[ilo] < 0) ilo +=2;
+    out_l = h_new_bm[ilo]-h_bm[0];
+  }
+  if (h_bm[2*ncy-1] >= 0) {
+    while (h_new_bm[iro] < 0) iro -=2;
+    out_r = h_bm[2*ncy-1] - h_new_bm[iro];
+  }
   
   // eliminate/create particles
-  
   if (out_l != 0 || out_r != 0 || in != 0) {
     // move particles to host dummy vector
-    length = h_new_bm[2*ncy-1]-h_new_bm[0]+1+in;
+    length = h_new_bm[iro]-h_new_bm[ilo]+1+in;
     dummy_p = (particle*) malloc((length)*sizeof(particle));
-    cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[0], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
+    cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_p);
     cu_check(cuError, __FILE__, __LINE__);
@@ -201,7 +208,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     // actualize bookmarks (left removed particles)
     if (out_l != 0) {
       for (int k = 0; k < 2*ncy; k++) {
-        h_new_bm[k] -= out_l;
+        if (h_new_bm[k] >= 0) h_new_bm[k] -= out_l;
       }
     }
     
@@ -214,7 +221,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
       cu_check(cuError, __FILE__, __LINE__);
       
       // create new particles
-      for (int k = h_new_bm[2*ncy-1]+1; k < length; k++) {
+      for (int k = h_new_bm[iro]+1; k < length; k++) {
         //initialize particles
         dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
         dummy_p[k].y = Ly;
@@ -251,7 +258,12 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
       }
       
       // move end bookmark of last bin_bookmark (added particles)
-      h_new_bm[2*ncy-1] += in;
+      if (h_new_bm[2*ncy-1] < 0) {
+        h_new_bm[2*ncy-2] = h_new_bm[iro]+1;
+        h_new_bm[2*ncy-1] = h_new_bm[2*ncy-2]+in-1;
+      } else {
+        h_new_bm[2*ncy-1] += in; 
+      }
     }
     
     // copy new particles to device memory
