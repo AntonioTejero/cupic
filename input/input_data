@@ -9,7 +9,7 @@ phi_p = -5.0e0;
 
 #geometric properties of the simulation
 Lx = 1.27e1;
-Ly = 1.025e2;
+Ly = 1.021e2;
 ds = 1.0e-1;
 
 #time variables
