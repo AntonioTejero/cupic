@@ -33,8 +33,8 @@ int number_of_particles(int *d_bm)
   cu_check(cuError, __FILE__, __LINE__);
 
   // evaluate number of particles
-  ini = 2*ncy-1;
-  fin = 0;
+  ini = 0;
+  fin = 2*ncy-1;
 
   while (h_bm[fin] < 0 && fin > 0) fin -= 2;
   while (h_bm[ini] < 0 && ini < fin) ini += 2;
