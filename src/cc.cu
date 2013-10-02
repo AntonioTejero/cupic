@@ -789,15 +789,17 @@ __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
   __syncthreads();
 
   //---- analize cyclic contour condition for every particle in the batch
-  for (int i = sh_bm[0]+tid; i <= sh_bm[1]; i += tpb) {
-    reg_p = g_p[i];
-    if (reg_p.x < 0.0) {
-      reg_p.x += Lx;
-    } else if (reg_p.x > Lx) {
-      reg_p.x -= Lx;
-    }
-    __syncthreads();
-    g_p[i] = reg_p;
+  if (sh_bm[0]>0 && sh_bm[1]>0) {
+    for (int i = sh_bm[0]+tid; i <= sh_bm[1]; i += tpb) {
+      reg_p = g_p[i];
+      if (reg_p.x < 0.0) {
+        reg_p.x += Lx;
+      } else if (reg_p.x > Lx) {
+        reg_p.x -= Lx;
+      }
+      __syncthreads();
+      g_p[i] = reg_p;
+    } 
   }
 
   return;
