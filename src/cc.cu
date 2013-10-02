@@ -97,16 +97,16 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // set dimensions of grid of blocks and blocks of threads for particle defragmentation kernels
   griddim = ncy;
   blockdim = BINING_BLOCK_DIM;
-  show_bm(new_bm);
+
   // execute kernel for defragmentation of particles
   cudaGetLastError();
   pDefragDown<<<griddim, blockdim>>>(ds, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
-  show_bm(new_bm);
+
   cudaGetLastError();
   pDefragUp<<<griddim, blockdim>>>(ds, new_bm, p);
   cu_sync_check(__FILE__, __LINE__);
-  show_bm(new_bm);
+
   // allocate device memory for "n" vector
   cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
@@ -118,7 +118,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cudaGetLastError();
   pRebracketing<<<griddim, blockdim>>>(bm, new_bm, p, n);
   cu_sync_check(__FILE__, __LINE__);
-  show_bm(new_bm);
+
   // handle negative bookmarks and empty bins
 
   // define size of shared memory for bmHandler kernel
@@ -132,7 +132,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cudaGetLastError();
   bmHandler<<<griddim, blockdim, sh_mem_size>>>(new_bm, n, ncy);
   cu_sync_check(__FILE__, __LINE__);
-  show_bm(new_bm);
+
   return;
 }
 
