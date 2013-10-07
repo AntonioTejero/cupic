@@ -146,7 +146,7 @@ __global__ void fast_grid_to_particle(int nnx, int q, double ds, particle *g_p, 
       // load particle in registers
       p = g_p[i];
       // calculate x coordinate of the cell that the particle belongs to
-      ic = int(p.x/ds);
+      ic = __double2int_rd(p.x/ds);
       // calculate distances from particle to down left vertex of the cell (normalized)
       distx = fabs(double(ic*ds)-p.x)/ds;
       disty = fabs(double(blockDim.x*ds)-p.y)/ds;
