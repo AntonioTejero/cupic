@@ -32,7 +32,7 @@
 void init_dev(void);
 void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm);
 
-void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, double *Lx, double *Ly, double *ds, double *dt);
+void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, int *ncx, int *ncy, double *ds, double *dt);
 
 double init_qi(void);
 double init_qe(void);

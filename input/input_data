@@ -8,8 +8,8 @@ gamma = 1.0e3;
 phi_p = -5.0e0;
 
 #geometric properties of the simulation
-Lx = 1.27e1;
-Ly = 1.021e2;
+ncx = 127;
+ncy = 1021;
 ds = 1.0e-1;
 
 #time variables
