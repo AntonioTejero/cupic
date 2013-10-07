@@ -454,9 +454,11 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     __syncthreads();
     
     // swap "=" and "+" particles
-    if (__double2int_rd(reg_p.y/ds) >= bid) {
-      swap_index = atomicAdd(&tail, 1);
-      sh_p[swap_index] = reg_p;
+    if (tid < N) {
+      if (__double2int_rd(reg_p.y/ds) >= bid) {
+        swap_index = atomicAdd(&tail, 1);
+        sh_p[swap_index] = reg_p;
+      } 
     }
     __syncthreads();
     
@@ -615,9 +617,11 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     __syncthreads();
     
     // swap "=" particles
-    if (__double2int_rd(reg_p.y/ds) == bid) {
-      swap_index = atomicAdd(&tail, 1);
-      sh_p[swap_index] = reg_p;
+    if (tid < N) {
+      if (__double2int_rd(reg_p.y/ds) == bid) {
+        swap_index = atomicAdd(&tail, 1);
+        sh_p[swap_index] = reg_p;
+      } 
     }
     __syncthreads();
     
@@ -737,7 +741,7 @@ __global__ void bmHandler(int *bm, int *n, int ncy)
   // kernel registers
   int tid = (int) threadIdx.x;
   int zero = 2*tid;
-  int one = zero+1;
+  int one = 2*tid+1;
   
   /*--------------------------- kernel body ----------------------------*/
   
@@ -751,7 +755,7 @@ __global__ void bmHandler(int *bm, int *n, int ncy)
   //---- handle bookmarks
   
   // bins that runs out of particles
-  if (sh_bm[zero]>0 && sh_bm[one]>0 && sh_bm[one]<sh_bm[zero]) {
+  if (sh_bm[zero]>=0 && sh_bm[one]>=0 && sh_bm[one]<sh_bm[zero]) {
     sh_bm[zero] = -1;
     sh_bm[one] = -1;
   }
@@ -790,7 +794,7 @@ __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
   __syncthreads();
 
   //---- analize cyclic contour condition for every particle in the batch
-  if (sh_bm[0]>0 && sh_bm[1]>0) {
+  if (sh_bm[0]>=0 && sh_bm[1]>=0) {
     for (int i = sh_bm[0]+tid; i <= sh_bm[1]; i += tpb) {
       reg_p = g_p[i];
       if (reg_p.x < 0.0) {
