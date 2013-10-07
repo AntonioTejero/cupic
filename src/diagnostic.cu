@@ -138,13 +138,14 @@ void mesh_snapshot(double *d_m, string filename)
 
 /**********************************************************/
 
-void show_bm(int * d_bm)
+void save_bm(int * d_bm, string filename)
 {
   /*--------------------------- function variables -----------------------*/
   
   // host memory
   static const int ncy = init_ncy();      // number of cells in y dimension
   int h_bm[2*ncy];
+  ofstream file;
   cudaError_t cuError;
   
   // device memory
@@ -155,14 +156,16 @@ void show_bm(int * d_bm)
   // copy vector of bookmarks from device to host
   cuError = cudaMemcpy (h_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToHost);
   cu_check(cuError, __FILE__, __LINE__);
-  
-  // print bookmarks
-  cout << "| ";
+
+  // save bookmarks to file
+  filename.insert(0, "../output/");
+  filename.append(".dat");
+  file.open(filename.c_str());
+
   for (int i = 0; i<2*ncy; i+=2)
   {
-    cout << h_bm[i] << "," << h_bm[i+1] << " | ";
+    file << h_bm[i] << " " << h_bm[i+1] << endl;
   }
-  cout << endl;
   
   return;
 }
