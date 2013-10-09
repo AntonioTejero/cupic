@@ -2,7 +2,7 @@
 
 CC = g++
 NVCC = nvcc
-#NVCCGLAGS = -arch=sm_20 -Xptxas -v
+#NVCCFLAGS = -arch=sm_20 -Xptxas -v
 NVCCFLAGS = -arch=sm_20
 LINKERFLAGS = -lgsl -lgslcblas -lcuda -lcudart
 
