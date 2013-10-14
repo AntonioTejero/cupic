@@ -133,6 +133,9 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   bmHandler<<<griddim, blockdim, sh_mem_size>>>(new_bm, n, ncy);
   cu_sync_check(__FILE__, __LINE__);
 
+  // free memory for "n" vector
+  cudaFree(n);
+
   return;
 }
 
