@@ -805,7 +805,6 @@ __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
       } else if (reg_p.x > Lx) {
         reg_p.x -= Lx;
       }
-      __syncthreads();
       g_p[i] = reg_p;
     } 
   }
