@@ -29,7 +29,9 @@ int main (int argc, const char* argv[])
   double t = 0;             // time of simulation
   double dt = init_dt();    // time step
   char filename[50];        // filename for saved data
-  int m = 10;               // number of iterations between diagnostics
+  int n_prev = 0;           // number of iterations before start analizing
+  int n_steps = 1;          // number of iterations between diagnostics
+  int n_total = 10000;      // number of total iterations
 
   // device variables definition
   double *d_rho, *d_phi, *d_Ex, *d_Ey;  // properties of mesh (charge density, potential and fields at nodes of the mesh)
@@ -48,35 +50,35 @@ int main (int argc, const char* argv[])
   mesh_snapshot(d_rho, filename);
   sprintf(filename, "potential_t_0");
   mesh_snapshot(d_phi, filename);
-  
-  for (int j = 1; j < 10000; j++) {
-    for (int i = 0; i < m; i++, t += dt)
-    {
-      cout << "t = " << t << endl;
-      // deposit charge into the mesh nodes
-      charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
-      
-      // solve poisson equation
-      poisson_solver(1.0e-3, d_rho, d_phi);
-      
-      // derive electric fields from potential
-      field_solver(d_phi, d_Ex, d_Ey);
-      
-      // move particles
-      particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
-      
-      // contour condition
-      cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
-    }
+
+  for (int i = 0; i < n_total; i++, t += dt) {
+    cout << "t = " << t << endl;
     
-    sprintf(filename, "e_t_%d", j*m);
-    particles_snapshot(d_e, d_e_bm, filename);
-    sprintf(filename, "i_t_%d", j*m);
-    particles_snapshot(d_i, d_i_bm, filename);
-    sprintf(filename, "charge_t_%d", j*m);
-    mesh_snapshot(d_rho, filename);
-    sprintf(filename, "potential_t_%d", j*m);
-    mesh_snapshot(d_phi, filename);
+    // deposit charge into the mesh nodes
+    charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
+    
+    // solve poisson equation
+    poisson_solver(1.0e-3, d_rho, d_phi);
+    
+    // derive electric fields from potential
+    field_solver(d_phi, d_Ex, d_Ey);
+    
+    // move particles
+    particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
+    
+    // contour condition
+    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
+
+    if (i>=n_prev && i%n_steps==0) {
+      sprintf(filename, "e_t_%d", i);
+      particles_snapshot(d_e, d_e_bm, filename);
+      sprintf(filename, "i_t_%d", i);
+      particles_snapshot(d_i, d_i_bm, filename);
+      sprintf(filename, "charge_t_%d", i);
+      mesh_snapshot(d_rho, filename);
+      sprintf(filename, "potential_t_%d", i);
+      mesh_snapshot(d_phi, filename);
+    }
   }
   
   cout << "Simulation finished!" << endl;
