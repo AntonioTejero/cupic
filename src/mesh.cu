@@ -172,7 +172,7 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   particle p;
   double distx, disty;
   int ic;
-  int jc = blockIdx.x;
+  int jc = (int) blockIdx.x;
   
   /*--------------------------- kernel body ----------------------------*/
   
@@ -194,16 +194,15 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   //--- deposition of charge
   
   // electron deposition
-
   if (sh_e_bm[0] >= 0 && sh_e_bm[1] >= 0) {
     for (int i = sh_e_bm[0]+threadIdx.x; i<=sh_e_bm[1]; i+=blockDim.x) {
       // load electron in registers
       p = elec[i];
       // calculate x coordinate of the cell that the electron belongs to
-      ic = int(p.x/ds);
+      ic = __double2int_rd(p.x/ds);
       // calculate distances from particle to down left vertex of the cell
-      distx = fabs(double(ic*ds)-p.x)/ds;
-      disty = fabs(double(jc*ds)-p.y)/ds;
+      distx = fabs(__int2double_rn(ic)*ds-p.x)/ds;
+      disty = fabs(__int2double_rn(jc)*ds-p.y)/ds;
       // acumulate charge in partial rho
       atomicAdd(sh_partial_rho+ic, -(1.0-distx)*(1.0-disty));  //down left vertex
       atomicAdd(sh_partial_rho+ic+1, -distx*(1.0-disty));      //down right vertex
@@ -214,16 +213,15 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   __syncthreads();
   
   // ion deposition
-
   if (sh_i_bm[0] >= 0 && sh_i_bm[1] >= 0) {
     for (int i = sh_i_bm[0]+threadIdx.x; i<=sh_i_bm[1]; i+=blockDim.x) {
       // load electron in registers
       p = ions[i];
       // calculate x coordinate of the cell that the electron belongs to
-      ic = int(p.x/ds);
+      ic = __double2int_rd(p.x/ds);
       // calculate distances from particle to down left vertex of the cell
-      distx = fabs(double(ic*ds)-p.x)/ds;
-      disty = fabs(double(jc*ds)-p.y)/ds;
+      distx = fabs(__int2double_rn(ic)*ds-p.x)/ds;
+      disty = fabs(__int2double_rn(jc)*ds-p.y)/ds;
       // acumulate charge in partial rho
       atomicAdd(sh_partial_rho+ic, (1.0-distx)*(1.0-disty));  //down left vertex
       atomicAdd(sh_partial_rho+ic+1, distx*(1.0-disty));      //down right vertex
@@ -241,36 +239,56 @@ __global__ void fast_particle_to_grid(int nnx, double ds, double *rho, particle 
   }
   __syncthreads();
 
-  //---- volume correction
+//     //---- volume correction (shared) -> DOESN'T WORK
+//     
+//     if (blockIdx.x == 0) {
+//       for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
+//         sh_partial_rho[i] /= ds*ds*ds*0.5;
+//         if (sh_partial_rho[i]>10000.0) printf("Error: huge rho in tid %d bid %d\n", threadIdx.x, blockIdx.x);
+//       }
+//       for (int i = nnx+threadIdx.x; i < 2*nnx; i+=blockDim.x) {
+//         sh_partial_rho[i] /= ds*ds*ds;
+//         if (sh_partial_rho[i]>10000.0) printf("Error: huge rho in tid %d bid %d\n", threadIdx.x, blockIdx.x);
+//       }
+//     } else if (blockIdx.x == blockDim.x-1) {
+//       for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
+//         sh_partial_rho[i] /= ds*ds*ds;
+//         if (sh_partial_rho[i]>10000.0) printf("Error: huge rho in tid %d bid %d\n", threadIdx.x, blockIdx.x);
+//       }
+//       for (int i = nnx+threadIdx.x; i < 2*nnx; i+=blockDim.x) {
+//         sh_partial_rho[i] /= ds*ds*ds*0.5;
+//         if (sh_partial_rho[i]>10000.0) printf("Error: huge rho in tid %d bid %d\n", threadIdx.x, blockIdx.x);
+//       }
+//     } else {
+//       for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
+//         sh_partial_rho[i] /= ds*ds*ds;
+//         if (sh_partial_rho[i]>10000.0) printf("Error: huge rho in tid %d bid %d\n", threadIdx.x, blockIdx.x);
+//       }
+//     }
+//     __syncthreads();
 
-  if (blockIdx.x == 0) {
-    for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
-      sh_partial_rho[i] /= ds*ds*ds*0.5;
-    }
-    for (int i = threadIdx.x; (i >= nnx) && (i < nnx); i+=blockDim.x) {
-      sh_partial_rho[i] /= ds*ds*ds;
-    }
-  } else if (blockIdx.x == blockDim.x-1) {
-    for (int i = threadIdx.x; i < nnx; i+=blockDim.x) {
-      sh_partial_rho[i] /= ds*ds*ds;
-    }
-    for (int i = threadIdx.x; (i >= nnx) && (i < nnx); i+=blockDim.x) {
-      sh_partial_rho[i] /= ds*ds*ds*0.5;
-    }
-  } else {
-    for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
-      sh_partial_rho[i] /= ds*ds*ds;
-    }
-  }
-  __syncthreads();
-  
   //---- acumulation of charge
   
   for (int i = threadIdx.x; i < 2*nnx; i+=blockDim.x) {
     atomicAdd(rho+blockIdx.x*nnx+i, sh_partial_rho[i]);
   }
   __syncthreads();
+
+  //---- volume correction (global)
   
+  if (blockIdx.x > 0) {
+    for (int i = threadIdx.x; i<nnx; i+=blockDim.x) {
+      rho[nnx*blockIdx.x+i] /= ds*ds*ds; 
+    }
+  } else {
+    for (int i = threadIdx.x; i<nnx; i+=blockDim.x) {
+      rho[i] /= 0.5*ds*ds*ds;
+    }
+    for (int i = nnx+threadIdx.x; i<2*nnx; i+=blockDim.x) {
+      rho[nnx*blockDim.x+i] /= 0.5*ds*ds*ds;
+    }
+  }
+
   return;
 }
 
