@@ -110,6 +110,8 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // allocate device memory for "n" vector
   cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
+  cuError = cudaMemset(n, 0, 2*ncy*sizeof(int));
+  cu_check(cuError, __FILE__, __LINE__);
   
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -189,14 +191,10 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
   if((*tin) < fpt) in = 1 + int((fpt-(*tin))/dtin);
   
   // calculate number of particles that flow out of the simulation
-  if (h_bm[0] >= 0) {
-    while (h_new_bm[ilo] < 0) ilo +=2;
-    out_l = h_new_bm[ilo]-h_bm[0];
-  }
-  if (h_bm[2*ncy-1] >= 0) {
-    while (h_new_bm[iro] < 0) iro -=2;
-    out_r = h_bm[2*ncy-1] - h_new_bm[iro];
-  }
+  while (h_new_bm[ilo] < 0) ilo +=2;
+  while (h_new_bm[iro] < 0) iro -=2;
+  if (h_bm[0]>=0 && h_bm[1]>=0) out_l = h_new_bm[ilo]-h_bm[0];
+  if (h_bm[2*ncy-1]>=0 && h_bm[2*ncy-2]>=0) out_r = h_bm[2*ncy-1] - h_new_bm[iro];
   
   // eliminate/create particles
   if (out_l != 0 || out_r != 0 || in != 0) {
@@ -452,7 +450,7 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     }
     __syncthreads();
     
-    // store new left bookmark global memory
+    // store new left bookmark in global memory
     if (0 == tid) g_new_bm[bid*2] = sh_bm[0]+tail;
     __syncthreads();
     
@@ -764,7 +762,10 @@ __global__ void bmHandler(int *bm, int *n, int ncy)
   }
   // empty bins that get particles into them
   if (sh_bm[zero]<0 && sh_bm[one]>=0) sh_bm[zero] = sh_bm[one]-n[one];
-  if (sh_bm[one]<0 && sh_bm[zero]>=0) sh_bm[one] = sh_bm[zero]+n[zero];
+  if (sh_bm[one]<0 && sh_bm[zero]>=0) {
+    if (tid == 0) sh_bm[zero]=-1;
+    else sh_bm[one] = sh_bm[zero]+n[zero];
+  }
   __syncthreads();
   
   //---- store bookmarks in global memory
