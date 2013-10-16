@@ -110,8 +110,6 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   // allocate device memory for "n" vector
   cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMemset(n, 0, 2*ncy*sizeof(int));
-  cu_check(cuError, __FILE__, __LINE__);
   
   // set dimension of grid of blocks for particle rebracketing kernel
   griddim = ncy-1;
@@ -708,7 +706,7 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p, int *n)
     } else if (sh_old_bm[1] < 0) {
       if ((sh_old_bm[0]-sh_new_bm[0]) > 0) {
         sh_new_bm[1] = sh_new_bm[0] + 1;
-        n[bid*2] = sh_old_bm[0]-sh_new_bm[0]-1;
+        n[2+bid*2] = sh_old_bm[0]-sh_new_bm[0]-1;
       }
     } else {
       if ( (sh_old_bm[0]-sh_new_bm[0]) < (sh_new_bm[1]-sh_old_bm[1])) {
