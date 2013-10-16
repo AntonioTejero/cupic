@@ -164,7 +164,7 @@ void save_bm(int * d_bm, string filename)
 
   for (int i = 0; i<2*ncy; i+=2)
   {
-    file << h_bm[i] << " " << h_bm[i+1] << endl;
+    file << i << " " << h_bm[i] << " " << h_bm[i+1] << endl;
   }
   
   return;
