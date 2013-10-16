@@ -228,7 +228,7 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
 
 /**********************************************************/
 
-void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, int *ncx, int *ncy, double *ds, double *dt)
+void read_input_file(void *data, int data_size, int n)
 {
   // function variables
   ifstream myfile;
@@ -236,39 +236,19 @@ void read_input_file(double *ne, double *Te, double *beta, double *gamma, double
 
   // function body
   myfile.open("../input/input_data");
-  if (myfile.is_open())
-  {
+  if (myfile.is_open()) {
     myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "ne = %lf \n", ne);
-    myfile.getline (line, 80);
-    sscanf (line, "Te = %lf \n", Te);
-    myfile.getline (line, 80);
-    sscanf (line, "beta = %lf \n", beta);
-    myfile.getline (line, 80);
-    sscanf (line, "gamma = %lf \n", gamma);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "phi_p = %lf \n", pot);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "ncx = %d \n", ncx);
-    myfile.getline (line, 80);
-    sscanf (line, "ncy = %d \n", ncy);
-    myfile.getline (line, 80);
-    sscanf (line, "ds = %lf \n", ds);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    myfile.getline (line, 80);
-    sscanf (line, "dt = %lf \n", dt);
-  } else
-  {
+    for (int i = 0; i < n; i++) myfile.getline (line, 80);
+    if (data_size == sizeof(int)) {
+      sscanf (line, "%*s = %d;\n", (int*) data);
+    } else if (data_size == sizeof(double)) {
+      sscanf (line, "%*s = %lf;\n", (double*) data);
+    }
+  } else {
     cout << "input data file could not be opened" << endl;
     exit(1);
   }
-
+  myfile.close();
   return;
 }
 
@@ -299,13 +279,11 @@ double init_qe(void)
 double init_mi(void) 
 {
   // function variables
-  double ne, Te, beta, pot, ds, dt;
-  int ncx, ncy;
   static double gamma = 0.0;
 
   // function body
   
-  if (gamma == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (gamma == 0.0) read_input_file((void*) &gamma, sizeof(gamma), 7);
   
   return gamma;
 }
@@ -326,13 +304,11 @@ double init_me(void)
 double init_kti(void) 
 { 
   // function variables
-  double ne, Te, gamma, pot, ds, dt;
-  int ncx, ncy;
   static double beta = 0.0;
   
   // function body
   
-  if (beta == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (beta == 0.0) read_input_file((void*) &beta, sizeof(beta), 6);
   
   return beta;
 }
@@ -353,15 +329,15 @@ double init_kte(void)
 double init_phi_p(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
+  double Te;
   static double phi_p = 0.0;
   
   // function body
   
   if (phi_p == 0.0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    phi_p = pot*CST_E/(CST_KB*Te);
+    read_input_file((void*) &Te, sizeof(Te), 5);
+    read_input_file((void*) &phi_p, sizeof(phi_p), 8);
+    phi_p *= CST_E/(CST_KB*Te);
   }
   
   return phi_p;
@@ -372,16 +348,14 @@ double init_phi_p(void)
 double init_n(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
   const double Dl = init_Dl();
   static double n = 0.0;
   
   // function body
   
   if (n == 0.0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    n = ne*Dl*Dl*Dl;
+    read_input_file((void*) &n, sizeof(n), 4);
+    n *= Dl*Dl*Dl;
   }
   
   return n;
@@ -392,16 +366,9 @@ double init_n(void)
 double init_Lx(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
-  static double Lx = 0.0;
+  static double Lx = double(init_ds()*init_ncx());
 
   // function body
-  
-  if (Lx == 0.0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    Lx = double(ds*ncx);
-  }
   
   return Lx;
 }
@@ -411,16 +378,9 @@ double init_Lx(void)
 double init_Ly(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
-  static double Ly = 0.0;
+  static double Ly = double(init_ds()*init_ncy());
   
   // function body
-  
-  if (Ly == 0.0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    Ly = double(ds*ncy);
-  }
   
   return Ly;
 }
@@ -430,13 +390,11 @@ double init_Ly(void)
 double init_ds(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, dt;
-  int ncx, ncy;
   static double ds = 0.0;
   
   // function body
   
-  if (ds == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (ds == 0.0) read_input_file((void*) &ds, sizeof(double), 11);
   
   return ds;
 }
@@ -446,13 +404,11 @@ double init_ds(void)
 double init_dt(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds;
-  int ncx, ncy;
   static double dt = 0.0;
   
   // function body
   
-  if (dt == 0.0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (dt == 0.0) read_input_file((void*) &dt, sizeof(double), 12);
   
   return dt;
 }
@@ -462,15 +418,14 @@ double init_dt(void)
 double init_epsilon0(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
+  double Te;
   const double Dl = init_Dl();
   static double epsilon0 = 0.0;
   // function body
   
   if (epsilon0 == 0.0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    epsilon0 = CST_EPSILON;
+    read_input_file((void*) &Te, sizeof(Te), 5);
+    epsilon0 = CST_EPSILON;                         // SI units
     epsilon0 /= pow(Dl*sqrt(CST_ME/(CST_KB*Te)),2); // time units
     epsilon0 /= CST_E*CST_E;                        // charge units
     epsilon0 *= Dl*Dl*Dl;                           // length units
@@ -485,13 +440,11 @@ double init_epsilon0(void)
 int init_ncx(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncy;
   static int ncx = 0;
   
   // function body
   
-  if (ncx == 0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (ncx == 0) read_input_file((void*) &ncx, sizeof(ncx), 9);
   
   return ncx;
 }
@@ -501,13 +454,11 @@ int init_ncx(void)
 int init_ncy(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx;
   static int ncy = 0;
   
   // function body
   
-  if (ncy == 0) read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (ncy == 0) read_input_file((void*) &ncy, sizeof(ncy), 10);
 
   return ncy;
 }
@@ -517,16 +468,9 @@ int init_ncy(void)
 int init_nnx(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
-  static int nnx = 0;
+  static int nnx = init_ncx()+1;
   
   // function body
-  
-  if (nnx == 0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    nnx = ncx+1;
-  }
   
   return nnx;
 }
@@ -536,16 +480,9 @@ int init_nnx(void)
 int init_nny(void) 
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
-  static int nny = 0;
+  static int nny = init_ncy()+1;
   
   // function body
-  
-  if (nny == 0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    nny = ncy+1;
-  }
   
   return nny;
 }
@@ -555,18 +492,14 @@ int init_nny(void)
 double init_dtin_i(void)
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
+  const double mi = init_mi();
+  const double kti = init_kti();
   const double n = init_n();
   const double Lx = init_Lx();
-  static double dtin_i = 0;
+  const double ds = init_ds();
+  static double dtin_i = sqrt(2.0*PI*mi/kti)/(n*Lx*ds);
   
   // function body
-  
-  if (dtin_i == 0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    dtin_i = sqrt(2.0*PI*gamma/beta)/(n*Lx*ds);
-  }
   
   return dtin_i;
 }
@@ -576,18 +509,12 @@ double init_dtin_i(void)
 double init_dtin_e(void)
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
   const double n = init_n();
   const double Lx = init_Lx();
-  static double dtin_e = 0;
+  const double ds = init_ds();
+  static double dtin_e = sqrt(2.0*PI)/(n*Lx*ds);
   
   // function body
-  
-  if (dtin_e == 0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
-    dtin_e = sqrt(2.0*PI)/(n*Lx*ds);
-  }
   
   return dtin_e;
 }
@@ -597,14 +524,14 @@ double init_dtin_e(void)
 double init_Dl(void)
 {
   // function variables
-  double ne, Te, beta, gamma, pot, ds, dt;
-  int ncx, ncy;
-  static double Dl = 0;
+  double ne, Te;
+  static double Dl = 0.0;
   
   // function body
   
-  if (Dl == 0) {
-    read_input_file(&ne, &Te, &beta, &gamma, &pot, &ncx, &ncy, &ds, &dt);
+  if (Dl == 0.0) {
+    read_input_file((void*) &ne, sizeof(ne), 4);
+    read_input_file((void*) &Te, sizeof(Te), 5);
     Dl = sqrt(CST_EPSILON*CST_KB*Te/(ne*CST_E*CST_E));
   }
   
@@ -612,6 +539,46 @@ double init_Dl(void)
 }
 
 /**********************************************************/
+
+int init_n_prev(void)
+{
+  // function variables
+  static int n_prev = -1;
+  
+  // function body
+  
+  if (n_prev < 0) read_input_file((void*) &n_prev, sizeof(n_prev), 1);
+  
+  return n_prev;
+}
+
+/**********************************************************/
+
+int init_n_save(void)
+{
+  // function variables
+  static int n_save = -1;
+  
+  // function body
+  
+  if (n_save < 0) read_input_file((void*) &n_save, sizeof(n_save), 2);
+  
+  return n_save;
+}
+
+/**********************************************************/
+
+int init_n_total(void)
+{
+  // function variables
+  static int n_total = -1;
+  
+  // function body
+  
+  if (n_total < 0) read_input_file((void*) &n_total, sizeof(n_total), 3);
+  
+  return n_total;
+}
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 

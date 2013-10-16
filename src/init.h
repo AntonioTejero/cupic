@@ -31,9 +31,7 @@
 // host functions
 void init_dev(void);
 void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm);
-
-void read_input_file(double *ne, double *Te, double *beta, double *gamma, double *pot, int *ncx, int *ncy, double *ds, double *dt);
-
+void read_input_file(void *data, int data_size, int n);
 double init_qi(void);
 double init_qe(void);
 double init_mi(void);
@@ -54,6 +52,9 @@ int init_ncy(void);
 int init_nnx(void);
 int init_nny(void);
 double init_Dl(void);
+int init_n_prev(void);
+int init_n_save(void);
+int init_n_total(void);
 
 // device kernels
 __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy);

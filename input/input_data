@@ -1,16 +1,13 @@
-#plasma properies
+#execution configuration
+n_prev = 0;
+n_save = 10000;
+n_total = 10000;
 ne = 1.1e14;
 Te = 1.0e3;
 beta = 1.0e-1;
 gamma = 1.0e3;
-
-#probe properties
 phi_p = -5.0e0;
-
-#geometric properties of the simulation
 ncx = 127;
 ncy = 1021;
 ds = 1.0e-1;
-
-#time variables
 dt = 1.0e-3;

@@ -26,12 +26,12 @@
 int main (int argc, const char* argv[])
 {
   // host variables definition
-  double t = 0;             // time of simulation
-  double dt = init_dt();    // time step
-  char filename[50];        // filename for saved data
-  int n_prev = 0;           // number of iterations before start analizing
-  int n_steps = 1;          // number of iterations between diagnostics
-  int n_total = 10000;      // number of total iterations
+  double t = 0;                       // time of simulation
+  const double dt = init_dt();        // time step
+  const int n_prev = init_n_prev();   // number of iterations before start analizing
+  const int n_save = init_n_save();   // number of iterations between diagnostics
+  const int n_total = init_n_total(); // number of total iterations
+  char filename[50];                  // filename for saved data
 
   // device variables definition
   double *d_rho, *d_phi, *d_Ex, *d_Ey;  // properties of mesh (charge density, potential and fields at nodes of the mesh)
@@ -69,7 +69,7 @@ int main (int argc, const char* argv[])
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
 
-    if (i>=n_prev && i%n_steps==0) {
+    if (i>=n_prev && i%n_save==0) {
       sprintf(filename, "e_t_%d", i);
       particles_snapshot(d_e, d_e_bm, filename);
       sprintf(filename, "i_t_%d", i);
