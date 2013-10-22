@@ -74,6 +74,9 @@ void particle_cc(double t, double *tin, double dtin, double kt, double m, int *d
   //---- apply cyclic contour conditions
   
   cyclic_cc(ncy, Lx, d_bm, *d_p);
+
+  // free device memory for new bookmark vector
+  cudaFree(d_new_bm);
   
   return;
 }
