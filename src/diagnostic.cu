@@ -209,6 +209,9 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   }
   
   file.close();
+
+  //free host memory for particle vector
+  free(h_p);
   
   return;
 }
