@@ -27,7 +27,6 @@
 
 // host function
 void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey);
-void particle_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, particle **d_p, double *d_Ex, double *d_Ey);
 void particle_bining(double Lx, double dy, int ncy, int *bm, int *new_bm, particle *p);
 void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, particle **d_p, double *d_Ex, double *d_Ey);
 void cyclic_cc(int ncy, double Lx, int *d_bm, particle *d_p);

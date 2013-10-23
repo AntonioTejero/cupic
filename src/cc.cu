@@ -17,38 +17,23 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   /*--------------------------- function variables -----------------------*/
 
   // host memory
-  static const double me = init_me();                     //
-  static const double mi = init_mi();                     // particle
-  static const double kti = init_kti();                   // properties
-  static const double kte = init_kte();                   //
+  static const double Lx = init_Lx();           //
+  static const double Ly = init_Ly();           //
+  static const double ds = init_ds();           // geometric properties
+  static const int nnx = init_nnx();            // of simulation
+  static const int nny = init_nny();            //
+  static const int ncy = init_ncy();            //
   
-  static const double dtin_e = init_dtin_e();             // time between electron insertions sqrt(2.0*PI*m_e/kT_e)/(n*Lx*dz)
-  static const double dtin_i = init_dtin_i();             // time between ion insertions sqrt(2.0*PI*m_i/kT_i)/(n*Lx*dz)
+  static const double me = init_me();           //
+  static const double mi = init_mi();           // particle
+  static const double kti = init_kti();         // properties
+  static const double kte = init_kte();         //
   
-  static double tin_e = dtin_e;                           // time for next electron insertion
-  static double tin_i = dtin_i;                           // time for next ion insertion
-
-  /*----------------------------- function body -------------------------*/
-
-  particle_cc(t, &tin_e, dtin_e, kte, me, d_e_bm, d_e, d_Ex, d_Ey);
-  particle_cc(t, &tin_i, dtin_i, kti, mi, d_i_bm, d_i, d_Ex, d_Ey);
+  static const double dtin_e = init_dtin_e();   // time between particles insertions
+  static const double dtin_i = init_dtin_i();   // sqrt(2.0*PI*m/kT)/(n*Lx*dz)
   
-  return;
-}
-
-/**********************************************************/
-
-void particle_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, particle **d_p, double *d_Ex, double *d_Ey)
-{
-  /*--------------------------- function variables -----------------------*/
-
-  // host memory
-  static const double Lx = init_Lx();     //
-  static const double Ly = init_Ly();     //
-  static const double ds = init_ds();     // geometric properties
-  static const int nnx = init_nnx();      // of simulation
-  static const int nny = init_nny();      //
-  static const int ncy = init_ncy();      //
+  static double tin_e = dtin_e;                 // time for next electron insertion
+  static double tin_i = dtin_i;                 // time for next ion insertion
 
   cudaError cuError;
   
@@ -60,21 +45,23 @@ void particle_cc(double t, double *tin, double dtin, double kt, double m, int *d
   // allocate device memory for new particle bookmarks
   cuError = cudaMalloc (&d_new_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMemcpy (d_new_bm, d_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
+
+  //---- electrons contour conditions
+  
+  cuError = cudaMemcpy (d_new_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
   cu_check(cuError, __FILE__, __LINE__);
+  particle_bining(Lx, ds, ncy, d_e_bm, d_new_bm, *d_e);
+  abs_emi_cc(t, &tin_e, dtin_e, kte, me, d_e_bm, d_new_bm, d_e, d_Ex, d_Ey);
+  cyclic_cc(ncy, Lx, d_e_bm, *d_e);
 
-  //---- sorting of particles with bining algorithm
-  
-  particle_bining(Lx, ds, ncy, d_bm, d_new_bm, *d_p);
+  //---- ions contour conditions
 
-  //---- apply absorbent/emitter contour conditions
+  cuError = cudaMemcpy (d_new_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
+  cu_check(cuError, __FILE__, __LINE__);
+  particle_bining(Lx, ds, ncy, d_i_bm, d_new_bm, *d_i);
+  abs_emi_cc(t, &tin_i, dtin_i, kti, mi, d_i_bm, d_new_bm, d_i, d_Ex, d_Ey);
+  cyclic_cc(ncy, Lx, d_i_bm, *d_i);
   
-  abs_emi_cc(t, tin, dtin, kt, m, d_bm, d_new_bm, d_p, d_Ex, d_Ey);
-  
-  //---- apply cyclic contour conditions
-  
-  cyclic_cc(ncy, Lx, d_bm, *d_p);
-
   // free device memory for new bookmark vector
   cudaFree(d_new_bm);
   
