@@ -53,7 +53,7 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   // host memory  
   particle *h_p;
   int N;
-  ofstream file;
+  FILE *file;
   cudaError_t cuError;
   
   // device memory
@@ -74,14 +74,14 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   // save snapshot to file
   filename.insert(0, "../output/");
   filename.append(".dat");
-  file.open(filename.c_str());
+  file = fopen(filename.c_str(), "w");
   
   for (int i = 0; i < N; i++) 
   {
-    file << i << " " << h_p[i].x << " " << h_p[i].y << " " << h_p[i].vx << " " << h_p[i].vy << endl;
+    fprintf(file, " %.17e %.17e %.17e %.17e \n", h_p[i].x, h_p[i].y, h_p[i].vx, h_p[i].vy);
   }
   
-  file.close();
+  fclose(file);
   
   // free host memory
   free(h_p);
@@ -99,7 +99,7 @@ void mesh_snapshot(double *d_m, string filename)
   static const int nnx = init_nnx();
   static const int nny = init_nny();
   double *h_m;
-  ofstream file;
+  FILE *file;
   cudaError_t cuError;
   
   // device memory
@@ -117,18 +117,18 @@ void mesh_snapshot(double *d_m, string filename)
   // save snapshot to file
   filename.insert(0, "../output/");
   filename.append(".dat");
-  file.open(filename.c_str());
+  file = fopen(filename.c_str(), "w");
   
   for (int i = 0; i < nnx; i++) 
   {
     for (int j = 0; j < nny; j++) 
     {
-      file << i << " " << j << " " << h_m[i+j*nnx] << endl;
+      fprintf(file, " %d %d %.17e \n", i, j, h_m[i+j*nnx]);
     }
-    file << endl;
+    fprintf(file, "\n");
   }
   
-  file.close();
+  fclose(file);
   
   // free host memory
   free(h_m);
@@ -145,7 +145,7 @@ void save_bm(int * d_bm, string filename)
   // host memory
   static const int ncy = init_ncy();      // number of cells in y dimension
   int h_bm[2*ncy];
-  ofstream file;
+  FILE *file;
   cudaError_t cuError;
   
   // device memory
@@ -160,12 +160,14 @@ void save_bm(int * d_bm, string filename)
   // save bookmarks to file
   filename.insert(0, "../output/");
   filename.append(".dat");
-  file.open(filename.c_str());
+  file = fopen(filename.c_str(), "w");
 
   for (int i = 0; i<2*ncy; i+=2)
   {
-    file << i << " " << h_bm[i] << " " << h_bm[i+1] << endl;
+    fprintf(file, " %d %d %d \n", i, h_bm[i], h_bm[i+1]);
   }
+
+  fclose(file);
   
   return;
 }
@@ -180,7 +182,7 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   static const double ds = init_ds();      // spacial step
   particle *h_p;
   int N;
-  ofstream file;
+  FILE *file;
   cudaError_t cuError;
   
   // device memory
@@ -201,14 +203,14 @@ void save_bins(int *d_bm, particle *d_p, string filename)
   // save bins to file
   filename.insert(0, "../output/");
   filename.append(".dat");
-  file.open(filename.c_str());
+  file = fopen(filename.c_str(), "w");
   
   for (int i = 0; i < N; i++) 
   {
-    file << i << " " << int(h_p[i].y/ds) << endl;
+    fprintf(file, " %d %d \n", i, int(h_p[i].y/ds));
   }
   
-  file.close();
+  fclose(file);
 
   //free host memory for particle vector
   free(h_p);
