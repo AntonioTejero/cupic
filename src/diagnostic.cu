@@ -43,7 +43,6 @@ int number_of_particles(int *d_bm)
   else return h_bm[fin]-h_bm[ini]+1;
 }
 
-
 /**********************************************************/
 
 void particles_snapshot(particle *d_p, int * d_bm, string filename) 
