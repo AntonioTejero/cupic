@@ -25,7 +25,7 @@
 // host function
 
 int number_of_particles(int *d_bm);
-void particles_snapshot(particle *d_p, int * d_bm, string filename);
+void particles_snapshot(particle *d_p, int * d_bm, string filename, double t);
 void mesh_snapshot(double *d_m, string filename);
 void save_bm(int * d_bm, string filename);
 void save_bins(int * d_bm, particle *d_p, string filename);

@@ -32,8 +32,8 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   static const double dtin_e = init_dtin_e();   // time between particles insertions
   static const double dtin_i = init_dtin_i();   // sqrt(2.0*PI*m/kT)/(n*Lx*dz)
   
-  static double tin_e = dtin_e;                 // time for next electron insertion
-  static double tin_i = dtin_i;                 // time for next ion insertion
+  static double tin_e = t+dtin_e;               // time for next electron insertion
+  static double tin_i = t+dtin_i;               // time for next ion insertion
 
   cudaError cuError;
   

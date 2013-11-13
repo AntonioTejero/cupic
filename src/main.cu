@@ -25,35 +25,38 @@
 
 int main (int argc, const char* argv[])
 {
+  /*--------------------------- function variables -----------------------*/
+  
   // host variables definition
-  double t = 0;                       // time of simulation
-  const double dt = init_dt();        // time step
-  const int n_prev = init_n_prev();   // number of iterations before start analizing
-  const int n_save = init_n_save();   // number of iterations between diagnostics
-  const int n_total = init_n_total(); // number of total iterations
-  char filename[50];                  // filename for saved data
+  double t;                             // time of simulation
+  const double dt = init_dt();          // time step
+  const int n_ini = init_n_ini();       // number of first iteration
+  const int n_prev = init_n_prev();     // number of iterations before start analizing
+  const int n_save = init_n_save();     // number of iterations between diagnostics
+  const int n_fin = init_n_fin();       // number of last iteration
+  char filename[50];                    // filename for saved data
+  ifstream ifile;
+  ofstream ofile;
 
   // device variables definition
-  double *d_rho, *d_phi, *d_Ex, *d_Ey;  // properties of mesh (charge density, potential and fields at nodes of the mesh)
-  particle *d_e, *d_i;                  // vector of electron and ions
-  int *d_e_bm, *d_i_bm;                 // vector that stores the bookmarks (beginning and end point) for each bin (electrons and ions)
+  double *d_rho, *d_phi, *d_Ex, *d_Ey;  // mesh properties
+  particle *d_e, *d_i;                  // particles vectors
+  int *d_e_bm, *d_i_bm;                 // bookmarks vectors
 
+  /*----------------------------- function body -------------------------*/
+
+  // initialize device and simulation
   init_dev();
-  init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
-  cout << "Simulation initialized with " << number_of_particles(d_e_bm)*2 << " particles." << endl << endl;
+  init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm, &t);
 
-  sprintf(filename, "e_t_0");
-  particles_snapshot(d_e, d_e_bm, filename);
-  sprintf(filename, "i_t_0");
-  particles_snapshot(d_i, d_i_bm, filename);
-  sprintf(filename, "charge_t_0");
-  mesh_snapshot(d_rho, filename);
-  sprintf(filename, "potential_t_0");
-  mesh_snapshot(d_phi, filename);
+  cout << "t = " << t << endl;
+  sprintf(filename, "electrons_ic_%d", (int) round(t/dt));
+  particles_snapshot(d_e, d_e_bm, filename, t);
+  sprintf(filename, "ions_ic_%d", (int) round(t/dt));
+  particles_snapshot(d_i, d_i_bm, filename, t);
+  t += dt;
 
-  for (int i = 0; i < n_total; i++, t += dt) {
-    cout << "t = " << t << endl;
-    
+  for (int i = n_ini+1; i <= n_fin; i++, t += dt) {
     // deposit charge into the mesh nodes
     charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
     
@@ -69,17 +72,40 @@ int main (int argc, const char* argv[])
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
 
+    cout << "t = " << t << endl;
     if (i>=n_prev && i%n_save==0) {
-      sprintf(filename, "e_t_%d", i);
-      particles_snapshot(d_e, d_e_bm, filename);
-      sprintf(filename, "i_t_%d", i);
-      particles_snapshot(d_i, d_i_bm, filename);
+      sprintf(filename, "electrons");
+      particles_snapshot(d_e, d_e_bm, filename, t);
+      sprintf(filename, "ions");
+      particles_snapshot(d_i, d_i_bm, filename, t);
       sprintf(filename, "charge_t_%d", i);
       mesh_snapshot(d_rho, filename);
       sprintf(filename, "potential_t_%d", i);
       mesh_snapshot(d_phi, filename);
+      system("mv charge_t* ../output/charge/");
+      system("mv potential_t* ../output/potential/");
+      system("gnuplot ../output/scripts/particles.gpi");
+      sprintf(filename, "mv particles.jpg ../output/particles/particles_%d.jpg", i/n_save);
+      system(filename);
     }
   }
+
+  ifile.open("../input/input_data");
+  ofile.open("../input/input_data_new");
+  if (ifile.is_open() && ofile.is_open()) {
+    ifile.getline(filename, 50);
+    ofile << filename << endl;
+    ifile.getline(filename, 50);
+    ofile << "n_ini = " << n_fin << ";" << endl;
+    ifile.getline(filename, 50);
+    while (!ifile.eof()) {
+      ofile << filename << endl;
+      ifile.getline(filename, 50);
+    }
+  }
+  ifile.close();
+  ofile.close();
+  system("mv ../input/input_data_new ../input/input_data");
   
   cout << "Simulation finished!" << endl;
   return 0;

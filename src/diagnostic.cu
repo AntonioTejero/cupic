@@ -45,11 +45,11 @@ int number_of_particles(int *d_bm)
 
 /**********************************************************/
 
-void particles_snapshot(particle *d_p, int * d_bm, string filename) 
+void particles_snapshot(particle *d_p, int * d_bm, string filename, double t)
 {
   /*--------------------------- function variables -----------------------*/
   
-  // host memory  
+  // host memory
   particle *h_p;
   int N;
   FILE *pFile;
@@ -71,11 +71,11 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename)
   cu_check(cuError, __FILE__, __LINE__);
   
   // save snapshot to file
-  filename.insert(0, "../output/");
   filename.append(".dat");
   pFile = fopen(filename.c_str(), "w");
-  
-  for (int i = 0; i < N; i++) 
+  filename.erase(filename.end()-4, filename.end());
+  fprintf(pFile, "\"%s t = %.3f\"\n", filename.c_str(), t);
+  for (int i = 0; i < N; i++)
   {
     fprintf(pFile, " %.17e %.17e %.17e %.17e \n", h_p[i].x, h_p[i].y, h_p[i].vx, h_p[i].vy);
   }
@@ -114,7 +114,6 @@ void mesh_snapshot(double *d_m, string filename)
   cu_check(cuError, __FILE__, __LINE__);
   
   // save snapshot to file
-  filename.insert(0, "../output/");
   filename.append(".dat");
   pFile = fopen(filename.c_str(), "w");
   
