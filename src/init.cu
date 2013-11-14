@@ -620,7 +620,7 @@ double init_epsilon0(void)
   if (epsilon0 == 0.0) {
     read_input_file((void*) &Te, sizeof(Te), 6);
     epsilon0 = CST_EPSILON;                         // SI units
-    epsilon0 /= pow(Dl*sqrt(CST_ME/(CST_KB*Te)),3); // time units
+    epsilon0 /= pow(Dl*sqrt(CST_ME/(CST_KB*Te)),2); // time units
     epsilon0 /= CST_E*CST_E;                        // charge units
     epsilon0 *= Dl*Dl*Dl;                           // length units
     epsilon0 *= CST_ME;                             // mass units
