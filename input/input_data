@@ -1,5 +1,5 @@
 #execution configuration
-n_ini = 200000;
+n_ini = 0;
 n_prev = 0;
 n_save = 10;
 n_fin = 300000;

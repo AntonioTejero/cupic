@@ -1,0 +1,3 @@
+#!/bin/bash
+
+avconv -f image2 -i particles_%d.jpg -b 32000k particles.mp4

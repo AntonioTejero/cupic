@@ -1,0 +1,31 @@
+set terminal jpeg size 1280,720
+set output "particles.jpg"
+ 
+set nokey
+set size 1,1
+set origin 0,0
+set multiplot
+
+set tmargin 0.5
+set bmargin 0.5
+set rmargin 1.0
+set lmargin 5.0
+
+set xrange [0:12.7]
+set yrange [0:102.1]
+set ylabel "y"
+set xlabel "x"
+set grid
+
+set size 0.45,0.85
+set origin 0.03,0.07
+set key at 9,110
+plot "electrons.dat" lc rgb "blue" title columnheader(1)
+
+set size 0.45,0.85
+set origin 0.51,0.07
+plot "ions.dat" lc rgb "red" title columnheader(1)
+
+unset multiplot
+
+reset
