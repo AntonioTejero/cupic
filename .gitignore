@@ -2,7 +2,9 @@
 *~
 *.swp
 *-swp
+*.dat
+*.jpg
+*.mov
+*.mp4
 bin/*
 !bin/README
-output/*
-!output/README
