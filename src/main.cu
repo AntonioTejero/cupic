@@ -50,9 +50,9 @@ int main (int argc, const char* argv[])
   init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm, &t);
 
   cout << "t = " << t << endl;
-  sprintf(filename, "electrons_ic_%d", (int) round(t/dt));
+  sprintf(filename, "../output/particles/electrons_t_0");
   particles_snapshot(d_e, d_e_bm, filename, t);
-  sprintf(filename, "ions_ic_%d", (int) round(t/dt));
+  sprintf(filename, "../output/particles/ions_t_0");
   particles_snapshot(d_i, d_i_bm, filename, t);
   t += dt;
 
@@ -74,19 +74,14 @@ int main (int argc, const char* argv[])
 
     cout << "t = " << t << endl;
     if (i>=n_prev && i%n_save==0) {
-      sprintf(filename, "electrons");
+      sprintf(filename, "../output/particles/electrons_t_%d", i);
       particles_snapshot(d_e, d_e_bm, filename, t);
-      sprintf(filename, "ions");
+      sprintf(filename, "../output/particles/ions_t_%d", i);
       particles_snapshot(d_i, d_i_bm, filename, t);
-      sprintf(filename, "charge_t_%d", i);
+      sprintf(filename, "../output/charge/charge_t_%d", i-1);
       mesh_snapshot(d_rho, filename);
-      sprintf(filename, "potential_t_%d", i);
+      sprintf(filename, "../output/potential/potential_t_%d", i-1);
       mesh_snapshot(d_phi, filename);
-      system("mv charge_t* ../output/charge/");
-      system("mv potential_t* ../output/potential/");
-      system("gnuplot ../output/scripts/particles.gpi");
-      sprintf(filename, "mv particles.jpg ../output/particles/particles_%d.jpg", i/n_save);
-      system(filename);
     }
   }
 

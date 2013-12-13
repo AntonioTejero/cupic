@@ -73,8 +73,6 @@ void particles_snapshot(particle *d_p, int * d_bm, string filename, double t)
   // save snapshot to file
   filename.append(".dat");
   pFile = fopen(filename.c_str(), "w");
-  filename.erase(filename.end()-4, filename.end());
-  fprintf(pFile, "\"%s t = %.3f\"\n", filename.c_str(), t);
   for (int i = 0; i < N; i++)
   {
     fprintf(pFile, " %.17e %.17e %.17e %.17e \n", h_p[i].x, h_p[i].y, h_p[i].vx, h_p[i].vy);
