@@ -189,6 +189,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     // move particles to host dummy vector
     length = h_new_bm[iro]-h_new_bm[ilo]+1+in;
     dummy_p = (particle*) malloc((length)*sizeof(particle));
+    cudaGetLastError();
     cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_p);
@@ -629,7 +630,7 @@ __global__ void pRebracketing(int *bm, int *new_bm, particle *p, int *n)
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  __shared__ int sh_old_bm[2];        // bookmarks before defragmentation (also used to store bookmarks after rebracketing) (bin_end, bin_start)
+  __shared__ int sh_old_bm[2];        // bookmarks before defragmentation 
   __shared__ int sh_new_bm[2];        // bookmarks after particle defragmentation (bin_end, bin_start)
   __shared__ int nswaps;              // number of swaps each bin frontier needs
   // kernel registers
