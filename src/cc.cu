@@ -757,16 +757,11 @@ __global__ void bmHandler(int *bm, int *n, int ncy)
   //---- handle bookmarks
   
   // bins that runs out of particles
-  if (sh_bm[zero]>=0 && sh_bm[one]>=0 && sh_bm[one]<sh_bm[zero]) {
-    sh_bm[zero] = -1;
-    sh_bm[one] = -1;
-  }
+  if (sh_bm[zero]>=0 && sh_bm[one]>=0 && sh_bm[one]<sh_bm[zero]) sh_bm[zero] = sh_bm[one] = -1;
+  else if (sh_bm[zero]==0 && sh_bm[one]<0) sh_bm[zero] = -1;
   // empty bins that get particles into them
-  if (sh_bm[zero]<0 && sh_bm[one]>=0) sh_bm[zero] = sh_bm[one]-n[one];
-  if (sh_bm[one]<0 && sh_bm[zero]>=0) {
-    if (tid == 0) sh_bm[zero]=-1;
-    else sh_bm[one] = sh_bm[zero]+n[zero];
-  }
+  else if (sh_bm[zero]<0 && sh_bm[one]>=0) sh_bm[zero] = sh_bm[one]-n[one];
+  else if (sh_bm[one]<0 && sh_bm[zero]>=0) sh_bm[one] = sh_bm[zero]+n[zero];
   __syncthreads();
   
   //---- store bookmarks in global memory
