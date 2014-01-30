@@ -336,9 +336,7 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
   if (N > tpb) {
     // initialize batch parameters
     if (0 == tid) {
-      while (N < 2*tpb) {
-        tpb /= 2;
-      }
+      while (N < 2*tpb) tpb /= 2;
       tail = 0;
       i = sh_bm[0];
       i_shifted = i + tpb;
@@ -351,8 +349,7 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     // load register batch
     if (tid < tpb) reg_p = g_p[i+tid];
     
-    int count = 0;
-    for (; N < tpb; count++, __syncthreads()) {
+    for (int count = 0; N < tpb; count++, __syncthreads()) {
       // reset tail and store previous shared batch if not first iteration
       if (count > 0) {
         if (0 == tid) tail =0;
@@ -364,17 +361,15 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
       if (tid < tpb) sh_p[tid] = g_p[i_shifted+tid+count*tpb];
       __syncthreads();
       // analize register batch
-      if (tid < tpb) {
-        if (__double2int_rd(reg_p.y/ds) < bid) {
-          do {
-            swap_index = atomicAdd(&tail, 1);
-            if (swap_index >= tpb) break;
-          } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
-          if (swap_index >= tpb) continue;
-          tmp_p = reg_p;
-          reg_p = sh_p[swap_index];
-          sh_p[swap_index] = tmp_p;
-        }
+      if ((tid < tpb) && (__double2int_rd(reg_p.y/ds) < bid)) {
+        do {
+          swap_index = atomicAdd(&tail, 1);
+          if (swap_index >= tpb) break;
+        } while (__double2int_rd(sh_p[swap_index].y/ds) < bid);
+        if (swap_index >= tpb) continue;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
         atomicAdd(&N, 1);
       }
     }
@@ -437,11 +432,9 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     if (tid < N) reg_p = g_p[sh_bm[0]+tid];
     
     // analize and swap whole bin
-    if (tid < N) {
-      if (__double2int_rd(reg_p.y/ds) < bid) {
-        swap_index = atomicAdd(&tail, 1);
-        sh_p[swap_index] = reg_p;
-      } 
+    if ((tid < N) && (__double2int_rd(reg_p.y/ds) < bid)) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p; 
     }
     __syncthreads();
     
@@ -450,11 +443,9 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     __syncthreads();
     
     // swap "=" and "+" particles
-    if (tid < N) {
-      if (__double2int_rd(reg_p.y/ds) >= bid) {
-        swap_index = atomicAdd(&tail, 1);
-        sh_p[swap_index] = reg_p;
-      } 
+    if ((tid < N) && (__double2int_rd(reg_p.y/ds) >= bid)) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
     }
     __syncthreads();
     
@@ -503,9 +494,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
   if (N > tpb) {
     // initialize batch parameters
     if (0 == tid) {
-      while (N < 2*tpb) {
-        tpb /= 2;
-      }
+      while (N < 2*tpb) tpb /= 2;
       tail = 0;
       i = sh_bm[1];
       i_shifted = i - tpb;
@@ -518,8 +507,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     // load register batch
     if (tid < tpb) reg_p = g_p[i-tid];
     
-    int count = 0;
-    for (; N < tpb; count++, __syncthreads()) {
+    for (int count = 0; N < tpb; count++, __syncthreads()) {
       // reset tail and store previous shared batch if not first iteration
       if (count > 0) {
         if (0 == tid) tail =0;
@@ -531,17 +519,15 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
       if (tid < tpb) sh_p[tid] = g_p[i_shifted-tid-count*tpb];
       __syncthreads();
       // analize register batch
-      if (tid < tpb) {
-        if (__double2int_rd(reg_p.y/ds) > bid) {
-          do {
-            swap_index = atomicAdd(&tail, 1);
-            if (swap_index >= tpb) break;
-          } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
-          if (swap_index >= tpb) continue;
-          tmp_p = reg_p;
-          reg_p = sh_p[swap_index];
-          sh_p[swap_index] = tmp_p;
-        }
+      if ((tid < tpb) && (__double2int_rd(reg_p.y/ds) > bid)) {
+        do {
+          swap_index = atomicAdd(&tail, 1);
+          if (swap_index >= tpb) break;
+        } while (__double2int_rd(sh_p[swap_index].y/ds) > bid);
+        if (swap_index >= tpb) continue;
+        tmp_p = reg_p;
+        reg_p = sh_p[swap_index];
+        sh_p[swap_index] = tmp_p;
         atomicAdd(&N, 1);
       }
     }
@@ -606,11 +592,9 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     if (tid < N) reg_p = g_p[sh_bm[0]+tid];
     
     // analize and swap whole bin
-    if (tid < N) {
-      if (__double2int_rd(reg_p.y/ds) > bid) {
-        swap_index = atomicAdd(&tail, 1);
-        sh_p[swap_index] = reg_p;
-      }
+    if ((tid < N) && (__double2int_rd(reg_p.y/ds) > bid)) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
     }
     __syncthreads();
     
@@ -619,11 +603,9 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     __syncthreads();
     
     // swap "=" particles
-    if (tid < N) {
-      if (__double2int_rd(reg_p.y/ds) == bid) {
-        swap_index = atomicAdd(&tail, 1);
-        sh_p[swap_index] = reg_p;
-      } 
+    if ((tid < N) && (__double2int_rd(reg_p.y/ds) == bid)) {
+      swap_index = atomicAdd(&tail, 1);
+      sh_p[swap_index] = reg_p;
     }
     __syncthreads();
     
