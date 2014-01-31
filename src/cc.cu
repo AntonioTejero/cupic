@@ -349,7 +349,8 @@ __global__ void pDefragDown(double ds, int *g_new_bm, particle *g_p)
     // load register batch
     if (tid < tpb) reg_p = g_p[i+tid];
     
-    for (int count = 0; N < tpb; count++, __syncthreads()) {
+    int count = 0;
+    for (; N < tpb; count++, __syncthreads()) {
       // reset tail and store previous shared batch if not first iteration
       if (count > 0) {
         if (0 == tid) tail =0;
@@ -507,7 +508,8 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p)
     // load register batch
     if (tid < tpb) reg_p = g_p[i-tid];
     
-    for (int count = 0; N < tpb; count++, __syncthreads()) {
+    int count = 0;
+    for (; N < tpb; count++, __syncthreads()) {
       // reset tail and store previous shared batch if not first iteration
       if (count > 0) {
         if (0 == tid) tail =0;
