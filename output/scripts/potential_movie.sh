@@ -2,7 +2,7 @@
 
 FILENAME=potential
 INI=9
-FIN=300000
+FIN=80628
 INC=10
 
 echo set terminal jpeg size 1280,720 > plot.gpi
@@ -25,5 +25,5 @@ done
 
 gnuplot plot.gpi
 rm plot.gpi
-avconv -f image2 -i "$FILENAME"_%d.jpg -b 32000k "$FILENAME".mp4
+avconv -f image2 -i "$FILENAME"_%d.jpg -b 32000k "$FILENAME"2.mp4
 rm *.jpg

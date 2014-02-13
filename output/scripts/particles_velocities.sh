@@ -1,9 +1,9 @@
 #!/bin/bash
 
-FILENAME=particles_velocities2
-INI=10
-FIN=5000
-INC=10
+FILENAME=particles_velocities
+INI=0
+FIN=76200
+INC=100
 
 echo set terminal jpeg size 1280,720 > plot.gpi
 
@@ -31,12 +31,12 @@ do
   
   echo set size 0.45,0.85 >> plot.gpi
   echo set origin 0.03,0.07 >> plot.gpi
-  echo set xrange[0:25] >> plot.gpi
+#   echo set xrange[0:25] >> plot.gpi
   echo -e set title \"electrons t = $i\" >> plot.gpi
   echo -e plot \'./electrons_t_$i.dat\' u \(bin\(sqrt\(\$3**2+\$4**2\),ebinwidth\)\):\(1.0\) smooth freq with boxes lc rgb \"blue\" >> plot.gpi
 
   echo set origin 0.51,0.07 >> plot.gpi
-  echo set xrange[0:0.35] >> plot.gpi
+#   echo set xrange[0:0.35] >> plot.gpi
   echo -e set title \"ions t = $i\" >> plot.gpi
   echo -e plot \'./ions_t_$i.dat\' u \(bin\(sqrt\(\$3**2+\$4**2\),ibinwidth\)\):\(1.0\) smooth freq with boxes lc rgb \"red\" >> plot.gpi
 

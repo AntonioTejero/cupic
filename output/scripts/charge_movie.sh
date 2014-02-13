@@ -9,8 +9,8 @@ echo set terminal jpeg size 1280,720 > plot.gpi
 
 echo set xrange[0:128] >> plot.gpi
 echo set yrange[0:1022] >> plot.gpi
-echo set zrange[-5000:5000] >> plot.gpi
-echo set cbrange[-5000:5000] >> plot.gpi
+#echo set zrange[-5000:5000] >> plot.gpi
+#echo set cbrange[-5000:5000] >> plot.gpi
 
 echo set xlabel \"i\" >> plot.gpi
 echo set ylabel \"j\" >> plot.gpi
