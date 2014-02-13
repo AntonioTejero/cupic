@@ -44,8 +44,8 @@ void init_dev(void)
   }
 
   // ask wich device to use
-  cout << "Select in wich device simulation must be run: ";
-  cin >> dev;
+  cout << "Select in wich device simulation must be run: 0" << endl;
+  dev = 0;  //cin >> dev;
   
   // set device to be used and reset it
   cudaSetDevice(dev);

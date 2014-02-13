@@ -1,8 +1,8 @@
 #!/bin/bash
 
-FILENAME=particles2
+FILENAME=particles_position
 INI=0
-FIN=158672
+FIN=80628
 INC=10
 
 echo set terminal jpeg size 1280,720 > plot.gpi

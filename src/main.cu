@@ -50,9 +50,9 @@ int main (int argc, const char* argv[])
   init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm, &t);
 
   cout << "t = " << t << endl;
-  sprintf(filename, "../output/particles/electrons_t_0");
+  sprintf(filename, "../output/particles/electrons_t_%d", n_ini);
   particles_snapshot(d_e, d_e_bm, filename, t);
-  sprintf(filename, "../output/particles/ions_t_0");
+  sprintf(filename, "../output/particles/ions_t_%d", n_ini);
   particles_snapshot(d_i, d_i_bm, filename, t);
   t += dt;
 
@@ -76,12 +76,16 @@ int main (int argc, const char* argv[])
     if (i>=n_prev && i%n_save==0) {
       sprintf(filename, "../output/particles/electrons_t_%d", i);
       particles_snapshot(d_e, d_e_bm, filename, t);
-      sprintf(filename, "../output/particles/ions_t_%d", i);
-      particles_snapshot(d_i, d_i_bm, filename, t);
-      sprintf(filename, "../output/charge/charge_t_%d", i-1);
-      mesh_snapshot(d_rho, filename);
-      sprintf(filename, "../output/potential/potential_t_%d", i-1);
-      mesh_snapshot(d_phi, filename);
+//       sprintf(filename, "../output/particles/ions_t_%d", i);
+//       particles_snapshot(d_i, d_i_bm, filename, t);
+//       sprintf(filename, "../output/charge/charge_t_%d", i-1);
+//       mesh_snapshot(d_rho, filename);
+//       sprintf(filename, "../output/potential/potential_t_%d", i-1);
+//       mesh_snapshot(d_phi, filename);
+      sprintf(filename, "../output/particles/bm_electrons_t_%d", i);
+      save_bm(d_e_bm, filename);
+      sprintf(filename, "../output/particles/bins_electrons_t_%d", i);
+      save_bins(d_e_bm, d_e, filename);
     }
   }
 
