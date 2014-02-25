@@ -47,4 +47,4 @@ done
 gnuplot plot.gpi
 rm plot.gpi
 avconv -f image2 -i "$FILENAME"_%d.jpg -b 32000k "$FILENAME".mp4
-rm *.jpg
+find . -name '*.jpg' -type f -print -delete
