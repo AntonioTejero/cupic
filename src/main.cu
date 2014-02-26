@@ -72,7 +72,10 @@ int main (int argc, const char* argv[])
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
 
-    cout << "t = " << t << endl;
+    // reset cuda device
+    if (i%10000 == 0) cuda_reset(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
+    
+    // store data
     if (i>=n_prev && i%n_save==0) {
       sprintf(filename, "../output/particles/electrons_t_%d", i);
       particles_snapshot(d_e, d_e_bm, filename, t);
@@ -87,6 +90,9 @@ int main (int argc, const char* argv[])
       sprintf(filename, "../output/particles/bins_electrons_t_%d", i);
       save_bins(d_e_bm, d_e, filename);
     }
+    
+    // print simulation time
+    cout << "t = " << t << endl;
   }
 
   ifile.open("../input/input_data");
