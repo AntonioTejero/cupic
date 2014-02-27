@@ -190,6 +190,8 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     length = h_new_bm[iro]-h_new_bm[ilo]+1+in;
     dummy_p = (particle*) malloc((length)*sizeof(particle));
     cudaGetLastError();
+    cout << dummy_p << " " << *d_p << " " << *d_p+h_new_bm[ilo] << " " << h_new_bm[ilo] << " " << length << " " << in <<
+    endl;
     cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_p);
