@@ -43,7 +43,7 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   /*----------------------------- function body -------------------------*/
   
   // allocate device memory for new particle bookmarks
-  cuError = cudaMalloc (&d_new_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) &d_new_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
 
   //---- electrons contour conditions
@@ -98,7 +98,7 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
   cu_sync_check(__FILE__, __LINE__);
 
   // allocate device memory for "n" vector
-  cuError = cudaMalloc (&n, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) &n, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
   
   // set dimension of grid of blocks for particle rebracketing kernel
@@ -190,8 +190,6 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     length = h_new_bm[iro]-h_new_bm[ilo]+1+in;
     dummy_p = (particle*) malloc((length)*sizeof(particle));
     cudaGetLastError();
-    cout << dummy_p << " " << *d_p << " " << *d_p+h_new_bm[ilo] << " " << h_new_bm[ilo] << " " << length << " " << in <<
-    endl;
     cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_p);
@@ -259,7 +257,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     }
     
     // copy new particles to device memory
-    cuError = cudaMalloc(d_p, length*sizeof(particle));
+    cuError = cudaMalloc((void **) d_p, length*sizeof(particle));
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaMemcpy(*d_p, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
     cu_check(cuError, __FILE__, __LINE__);

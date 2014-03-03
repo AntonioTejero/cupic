@@ -112,21 +112,21 @@ void cuda_reset(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, pa
   cu_check(cuError, __FILE__, __LINE__);
   
   // allocate device memory for data
-  cuError = cudaMalloc (d_rho, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_rho, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_phi, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_phi, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_Ex, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_Ex, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_Ey, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_Ey, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_e, Ne*sizeof(particle));
+  cuError = cudaMalloc ((void **) d_e, Ne*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_i, Ni*sizeof(particle));
+  cuError = cudaMalloc ((void **) d_i, Ni*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) d_e_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) d_i_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
   
   // copy data from host to device

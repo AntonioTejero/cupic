@@ -87,7 +87,7 @@ void poisson_solver(double max_error, double *d_rho, double *d_phi)
   h_block_error = new double[griddim.x];
   
   // allocate device memory
-  cuError = cudaMalloc(&d_block_error, griddim.x*sizeof(double));
+  cuError = cudaMalloc((void **) &d_block_error, griddim.x*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
 
   // execute jacobi iterations until solved

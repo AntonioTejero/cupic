@@ -50,9 +50,9 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   np = number_of_particles(d_e_bm);
   
   // allocate device memory for particle forces (electrons)
-  cuError = cudaMalloc(&Fx, np*sizeof(double));
+  cuError = cudaMalloc((void **) &Fx, np*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc(&Fy, np*sizeof(double));
+  cuError = cudaMalloc((void **) &Fy, np*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
   
   // call to fast_grid_to_particle kernel (electrons)
@@ -77,9 +77,9 @@ void particle_mover(particle *d_e, int *d_e_bm, particle *d_i, int *d_i_bm, doub
   np = number_of_particles(d_i_bm);
   
   // allocate device memory for particle forces (ions)
-  cuError = cudaMalloc(&Fx, np*sizeof(double));
+  cuError = cudaMalloc((void **) &Fx, np*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc(&Fy, np*sizeof(double));
+  cuError = cudaMalloc((void **) &Fy, np*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
   
   // call to fast_grid_to_particle kernel (ions)

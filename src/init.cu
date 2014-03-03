@@ -144,15 +144,15 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   h_i_bm = (int*) malloc(2*ncy*sizeof(int));
 
   // allocate device memory for particle vectors
-  cuError = cudaMalloc (d_i, N*sizeof(particle));
+  cuError = cudaMalloc ((void **) (void **) d_i, N*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_e, N*sizeof(particle));
+  cuError = cudaMalloc ((void **) d_e, N*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
   
   // allocate device memory for bookmark vectors
-  cuError = cudaMalloc (d_e_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) d_e_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_i_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) d_i_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
 
   // initialize particle vectors and bookmarks (host memory)
@@ -222,13 +222,13 @@ void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_E
   h_phi = (double*) malloc(nnx*nny*sizeof(double));
   
   // allocate device memory for mesh variables
-  cuError = cudaMalloc (d_rho, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_rho, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_phi, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_phi, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_Ex, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_Ex, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_Ey, nnx*nny*sizeof(double));
+  cuError = cudaMalloc ((void **) d_Ey, nnx*nny*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
   
   //initialize potential (host memory)
@@ -285,9 +285,9 @@ void adjust_leap_frog(particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm, do
   /*----------------------------- function body -------------------------*/
 
   // allocate device memory for particle forces
-  cuError = cudaMalloc(&d_Fx, N*sizeof(double));
+  cuError = cudaMalloc((void **) &d_Fx, N*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc(&d_Fy, N*sizeof(double));
+  cuError = cudaMalloc((void **) &d_Fy, N*sizeof(double));
   cu_check(cuError, __FILE__, __LINE__);
   
   // call kernels to calculate particle forces and fix their velocities
@@ -381,9 +381,9 @@ void read_particle_file(string filename, particle **d_p, int **d_bm)
   // allocate host and device memory for particles and bookmarks
   h_p = (particle*) malloc(n*sizeof(particle));
   h_bm = (int*) malloc(2*ncy*sizeof(int));
-  cuError = cudaMalloc (d_p, n*sizeof(particle));
+  cuError = cudaMalloc ((void **) d_p, n*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMalloc (d_bm, 2*ncy*sizeof(int));
+  cuError = cudaMalloc ((void **) d_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
   
   // read particles from file and store in host memory
