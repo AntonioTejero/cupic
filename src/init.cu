@@ -144,7 +144,7 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   h_i_bm = (int*) malloc(2*ncy*sizeof(int));
 
   // allocate device memory for particle vectors
-  cuError = cudaMalloc ((void **) (void **) d_i, N*sizeof(particle));
+  cuError = cudaMalloc ((void **) d_i, N*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
   cuError = cudaMalloc ((void **) d_e, N*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
