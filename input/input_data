@@ -1,9 +1,9 @@
 #execution configuration
 n_ini = 0;
 n_prev = 0;
-n_save = 10;
-n_fin = 300000;
-ne = 1.1e14;
+n_save = 100;
+n_fin = 200000;
+ne = 1.0e14;
 Te = 1.0e3;
 beta = 1.0e-1;
 gamma = 1.0e3;
