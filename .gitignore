@@ -8,3 +8,4 @@
 *.mp4
 bin/*
 !bin/README
+input/input_data
