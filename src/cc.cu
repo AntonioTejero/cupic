@@ -12,7 +12,8 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey)
+void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey,
+         curandStatePhilox4_32_10_t *state)
 {
   /*--------------------------- function variables -----------------------*/
 
@@ -51,7 +52,7 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   cuError = cudaMemcpy (d_new_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
   cu_check(cuError, __FILE__, __LINE__);
   particle_bining(Lx, ds, ncy, d_e_bm, d_new_bm, *d_e);
-  abs_emi_cc(t, &tin_e, dtin_e, kte, me, d_e_bm, d_new_bm, d_e, d_Ex, d_Ey);
+  abs_emi_cc(t, &tin_e, dtin_e, kte, me, d_e_bm, d_new_bm, d_e, d_Ex, d_Ey, state);
   cyclic_cc(ncy, Lx, d_e_bm, *d_e);
 
   //---- ions contour conditions
@@ -59,7 +60,7 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   cuError = cudaMemcpy (d_new_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
   cu_check(cuError, __FILE__, __LINE__);
   particle_bining(Lx, ds, ncy, d_i_bm, d_new_bm, *d_i);
-  abs_emi_cc(t, &tin_i, dtin_i, kti, mi, d_i_bm, d_new_bm, d_i, d_Ex, d_Ey);
+  abs_emi_cc(t, &tin_i, dtin_i, kti, mi, d_i_bm, d_new_bm, d_i, d_Ex, d_Ey, state);
   cyclic_cc(ncy, Lx, d_i_bm, *d_i);
   
   // free device memory for new bookmark vector
@@ -131,7 +132,8 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
 
 /**********************************************************/
 
-void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, particle **d_p, double *d_Ex, double *d_Ey)
+void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, 
+                particle **d_p, double *d_Ex, double *d_Ey, curandStatePhilox4_32_10_t *state)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -186,68 +188,29 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
   
   // eliminate/create particles
   if (out_l != 0 || out_r != 0 || in != 0) {
-    // move particles to host dummy vector
+    // move particles to new vector
     length = h_new_bm[iro]-h_new_bm[ilo]+1+in;
-    dummy_p = (particle*) malloc((length)*sizeof(particle));
-    cudaGetLastError();
-    cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToHost);
+    cuError = cudaMalloc((void **) &dummy_p, length*sizeof(particle));
+    cu_check(cuError, __FILE__, __LINE__);
+    cuError = cudaMemcpy(dummy_p, *d_p+h_new_bm[ilo], (length-in)*sizeof(particle), cudaMemcpyDeviceToDevice);
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaFree(*d_p);
     cu_check(cuError, __FILE__, __LINE__);
-    
+    cuError = cudaMalloc((void **) d_p, length*sizeof(particle));   
+    cu_check(cuError, __FILE__, __LINE__);
+    cuError = cudaMemcpy(*d_p, dummy_p, (length-in)*sizeof(particle), cudaMemcpyDeviceToDevice);
+    cu_check(cuError, __FILE__, __LINE__);
+    cuError = cudaFree(*dummy_p);
+    cu_check(cuError, __FILE__, __LINE__);
+
     // actualize bookmarks (left removed particles)
     if (out_l != 0) {
       for (int k = 0; k < 2*ncy; k++) {
         if (h_new_bm[k] >= 0) h_new_bm[k] -= out_l;
       }
     }
-    
-    // add particles
+    // move end bookmark of last bin_bookmark (added particles)
     if (in != 0) {
-      // copy fields data from device to host for simple push
-      cuError = cudaMemcpy (h_Ex, d_Ex, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError, __FILE__, __LINE__);
-      cuError = cudaMemcpy (h_Ey, d_Ey, nnx*nny*sizeof(double), cudaMemcpyDeviceToHost);
-      cu_check(cuError, __FILE__, __LINE__);
-      
-      // create new particles
-      for (int k = h_new_bm[iro]+1; k < length; k++) {
-        //initialize particles
-        dummy_p[k].x = gsl_rng_uniform_pos(rng)*Lx;
-        dummy_p[k].y = Ly;
-        dummy_p[k].vx = gsl_ran_gaussian(rng, sqrt(kt/m));
-        dummy_p[k].vy = -gsl_ran_rayleigh(rng, sqrt(kt/m));
-        
-        // calculate cell index
-        ic = int (dummy_p[k].x/ds);
-        jc = ncy-1;
-        
-        // calculate distances from particle to down left vertex (normalized to ds)
-        distx = fabs(double(ic)*ds-dummy_p[k].x)/ds;
-        disty = 1.0;
-        
-        // interpolate fields from nodes to particle
-        Epx = h_Ex[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
-        Epx += h_Ex[ic+1+jc*nnx]*distx*(1.0-disty);
-        Epx += h_Ex[ic+(jc+1)*nnx]*(1.0-distx)*disty;
-        Epx += h_Ex[ic+1+(jc+1)*nnx]*distx*disty;
-        
-        Epy = h_Ey[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
-        Epy += h_Ey[ic+1+jc*nnx]*distx*(1.0-disty);
-        Epy += h_Ey[ic+(jc+1)*nnx]*(1.0-distx)*disty;
-        Epy += h_Ey[ic+1+(jc+1)*nnx]*distx*disty;
-        
-        // simple push
-        dummy_p[k].x += (fpt-(*tin))*dummy_p[k].vx;
-        dummy_p[k].y += (fpt-(*tin))*dummy_p[k].vy;  // comprobar que no atraviesa una celda
-        dummy_p[k].vx -= (fvt-(*tin))*Epx/m;
-        dummy_p[k].vy -= (fvt-(*tin))*Epy/m;
-        
-        // actualize time for next particle insertion
-        (*tin) += dtin;
-      }
-      
-      // move end bookmark of last bin_bookmark (added particles)
       if (h_new_bm[2*ncy-1] < 0) {
         h_new_bm[2*ncy-2] = h_new_bm[iro]+1;
         h_new_bm[2*ncy-1] = h_new_bm[2*ncy-2]+in-1;
@@ -255,19 +218,23 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
         h_new_bm[2*ncy-1] += in; 
       }
     }
-    
-    // copy new particles to device memory
-    cuError = cudaMalloc((void **) d_p, length*sizeof(particle));
+
+    // copy new bookmarks to device memory
+    cuError = cudaMemcpy (d_bm, h_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
     cu_check(cuError, __FILE__, __LINE__);
-    cuError = cudaMemcpy(*d_p, dummy_p, length*sizeof(particle), cudaMemcpyHostToDevice);
-    cu_check(cuError, __FILE__, __LINE__);
-    free(dummy_p);
+ 
+    // add particles
+    if (in != 0) {
+      cudaGetLastError();
+      pEmi<<<CURAND_BLOCK_DIM, 1>>>(*d_p, d_bm, d_Ex, d_Ey, in, kt, m, Lx, ds, ncy, nnx, fpt, fvt, 
+                                    *tin, dtin, state);
+      cu_sync_check(__FILE__, __LINE__);
+
+      // actualize time for next particle insertion
+      (*tin) += double(in)*dtin;
+    }
   }
-  
-  // copy new bookmarks to device memory
-  cuError = cudaMemcpy (d_bm, h_new_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError, __FILE__, __LINE__);
-  
+ 
   return;
 }
 
@@ -771,6 +738,7 @@ __global__ void bmHandler(int *bm, int *n, int ncy)
   return;
 }
 
+/**********************************************************/
 
 __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
 {
@@ -810,3 +778,82 @@ __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
 }
 
 /**********************************************************/
+
+__global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n_in, double kt, double m, 
+                     double Lx, double ds, int ncy, int nnx, double fpt, double fvt, double tin, double dtin,
+                     curandStatePhilox4_32_10_t *state)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  __shared__ int sh_bm[2];
+  __shared__ double sh_Ex[2*nnx];
+  __shared__ double sh_Ey[2*nnx];
+  
+  // kernel registers
+  particle reg_p;
+  double sigma = sqrt(kt/m);
+  double Epx, Epy;
+  int ic;
+  int jc = 0;
+  double distx;
+  double disty = 1.0;
+  int tid = (int) threadIdx.x + (int) blockIdx.x * (int) blockDim.x;
+  int tpb = (int) blockDim.x;
+  curandStatePhilox4_32_10_t local_state;
+  double2 rnd;
+ 
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- initialize shared memory
+  if (tid < 2) sh_bm[tid] = g_bm[2*ncy-2+tid];
+  __syncthreads();
+  for (int i = tid; i < 2*nnx; i+=tpb) {
+    sh_Ex[i] = g_Ex[(ncy-1)*nnx+i];
+    sh_Ey[i] = g_Ey[(ncy-1)*nnx+i];
+  }
+  __syncthreads();
+
+  //---- generate particles
+  for (int i = tid; i < n_in; i+=tpb) {
+    // generate register particles
+    rnd.x = curand_uniform_double(&local_state);
+    reg_p.x = Lx*rnd.x;
+    reg_p.y = ncy*ds;
+    rnd = curand_normal2_double(&local_state);
+    reg_p.vx = rnd.x*sigma;
+    rnd = curand_normal2_double(&local_state);
+    reg_p.vy = -sqrt(rnd.x*rnd.x+rnd.y*rnd.y)*sigma;
+    
+    // calculate cell index
+    ic = int (reg_p.x/ds);
+
+    // calculate distances from particle to down left vertex (normalized to ds)
+    distx = fabs(double(ic)*ds-reg_p.x)/ds;
+     
+    // interpolate fields from nodes to particle
+    Epx = sh_Ex[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
+    Epx += sh_Ex[ic+1+jc*nnx]*distx*(1.0-disty);
+    Epx += sh_Ex[ic+(jc+1)*nnx]*(1.0-distx)*disty;
+    Epx += sh_Ex[ic+1+(jc+1)*nnx]*distx*disty;
+        
+    Epy = sh_Ey[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
+    Epy += sh_Ey[ic+1+jc*nnx]*distx*(1.0-disty);
+    Epy += sh_Ey[ic+(jc+1)*nnx]*(1.0-distx)*disty;
+    Epy += sh_Ey[ic+1+(jc+1)*nnx]*distx*disty;
+        
+    // simple push
+    reg_p.x += (fpt-tin*double(i)*dtin)*reg_p.vx;
+    reg_p.y += (fpt-tin*double(i)*dtin)*reg_p.vy;
+    reg_p.vx -= (fvt-tin*double(i)*dtin)*Epx/m;
+    reg_p.vy -= (fvt-tin*double(i)*dtin)*Epy/m;
+
+    // store new particles in global memory
+    g_p[sh_bm[1]-i] = reg_p;
+  }
+
+  return;
+}
+
+/**********************************************************/
+

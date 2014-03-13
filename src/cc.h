@@ -14,7 +14,7 @@
 
 #include "stdh.h"
 #include "init.h"
-#include "gslrand.h"
+#include "random.h"
 #include "diagnostic.h"
 #include "cuda.h"
 #include "dynamic_sh_mem.h"
@@ -26,9 +26,11 @@
 /************************ FUNCTION PROTOTIPES ************************/
 
 // host function
-void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey);
+void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey, 
+         curandStatePhilox4_32_10_t *state);
 void particle_bining(double Lx, double dy, int ncy, int *bm, int *new_bm, particle *p);
-void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, particle **d_p, double *d_Ex, double *d_Ey);
+void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, 
+                particle **d_p, double *d_Ex, double *d_Ey, curandStatePhilox4_32_10_t *state);
 void cyclic_cc(int ncy, double Lx, int *d_bm, particle *d_p);
 
 
@@ -38,5 +40,7 @@ __global__ void pDefragUp(double ds, int *g_new_bm, particle *g_p);
 __global__ void pRebracketing(int *bm, int *new_bm, particle *p, int *n);
 __global__ void bmHandler(int *bm, int *n, int ncy);
 __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p);
-
+__global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n_in, double kt, double m, 
+                     double Lx, double ds, int ncy, int nnx, double fpt, double fvt, double tin, double dtin,
+                     curandStatePhilox4_32_10_t *state);
 #endif 

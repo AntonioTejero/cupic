@@ -71,7 +71,7 @@ int main (int argc, const char* argv[])
     particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
     
     // contour condition
-    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey);
+    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey, state);
 
     // reset cuda device
     if (i%10000 == 0) cuda_reset(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
