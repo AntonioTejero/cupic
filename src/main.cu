@@ -42,12 +42,13 @@ int main (int argc, const char* argv[])
   double *d_rho, *d_phi, *d_Ex, *d_Ey;  // mesh properties
   particle *d_e, *d_i;                  // particles vectors
   int *d_e_bm, *d_i_bm;                 // bookmarks vectors
+  curandStatePhilox4_32_10_t *state;    // philox state for __device__ random number generation 
 
   /*----------------------------- function body -------------------------*/
 
   // initialize device and simulation
   init_dev();
-  init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm, &t);
+  init_sim(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm, &t, &state);
 
   cout << "t = " << t << endl;
   sprintf(filename, "../output/particles/electrons_t_%d", n_ini);

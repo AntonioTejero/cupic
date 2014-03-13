@@ -54,7 +54,8 @@ void init_dev(void)
   return;
 }
 
-void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm, double *t)
+void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, 
+              int **d_e_bm, int **d_i_bm, double *t, curandStatePhilox4_32_10_t **state)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -72,7 +73,7 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
     *t = 0.;
 
     // create particles
-    create_particles(d_i, d_i_bm, d_e, d_e_bm);
+    create_particles(d_i, d_i_bm, d_e, d_e_bm, state);
 
     // initialize mesh variables
     initialize_mesh(d_rho, d_phi, d_Ex, d_Ey, *d_i, *d_i_bm, *d_e, *d_e_bm);
@@ -103,7 +104,8 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
 
 /**********************************************************/
 
-void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm)
+void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm, 
+                      curandStatePhilox4_32_10_t **state)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -128,21 +130,17 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   // device memory
 
   /*----------------------------- function body -------------------------*/
-  
-  // initialize enviromental variables for gsl random number generator
-  gsl_rng_env_setup();
-  
+ 
+  // initialize curand philox states
+  cuError = cudaMalloc ((void **) state, CURAND_BLOCK_DIM*sizeof(curandStatePhilox4_32_10_t));
+  cu_check(cuError, __FILE__, __LINE__);
+  cudaGetLastError();
+  init_philox_state<<<CURAND_BLOCK_DIM, 1>>>(curandStatePhilox4_32_10_t *state);
+  cu_sync_check(__FILE__, __LINE__);
+
   // calculate initial number of particles
   N = int(n*Lx*ds*ds)*ncy;
   
-  // allocate host memory for particle vectors
-  h_i = (particle*) malloc(N*sizeof(particle));
-  h_e = (particle*) malloc(N*sizeof(particle));
-  
-  // allocate host memory for bookmark vectors
-  h_e_bm = (int*) malloc(2*ncy*sizeof(int));
-  h_i_bm = (int*) malloc(2*ncy*sizeof(int));
-
   // allocate device memory for particle vectors
   cuError = cudaMalloc ((void **) d_i, N*sizeof(particle));
   cu_check(cuError, __FILE__, __LINE__);
@@ -155,51 +153,23 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   cuError = cudaMalloc ((void **) d_i_bm, 2*ncy*sizeof(int));
   cu_check(cuError, __FILE__, __LINE__);
 
-  // initialize particle vectors and bookmarks (host memory)
-  for (int i = 0; i < ncy; i++)
-  {
-    h_e_bm[2*i] = i*(N/ncy);
-    h_e_bm[2*i+1] = ((i+1)*(N/ncy))-1;
-    h_i_bm[2*i] = i*(N/ncy);
-    h_i_bm[2*i+1] = ((i+1)*(N/ncy))-1;
-    for (int j = 0; j < N/ncy; j++)
-    {
-      // initialize ions
-      h_i[(i*(N/ncy))+j].x = gsl_rng_uniform_pos(rng)*Lx;
-      h_i[(i*(N/ncy))+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
-      h_i[(i*(N/ncy))+j].vx = gsl_ran_gaussian(rng, sqrt(kti/mi));
-      h_i[(i*(N/ncy))+j].vy = gsl_ran_gaussian(rng, sqrt(kti/mi));
-      
-      // initialize electrons
-      h_e[(i*(N/ncy))+j].x = gsl_rng_uniform_pos(rng)*Lx;
-      h_e[(i*(N/ncy))+j].y = double(i)*ds+gsl_rng_uniform_pos(rng)*ds;
-      h_e[(i*(N/ncy))+j].vx = gsl_ran_gaussian(rng, sqrt(kte/me));
-      h_e[(i*(N/ncy))+j].vy = gsl_ran_gaussian(rng, sqrt(kte/me));
-    }
-  }
+  // create particles (electrons)
+  cudaGetLastError();
+  create_particles_kernel<<<CURAND_BLOCK_DIM, 1>>>(*d_e, *d_e_bm, kte, me, N, ncy, Lx, ds, *state);
+  cu_sync_check(__FILE__, __LINE__);
 
-  // copy particle and bookmark vectors from host to device memory
-  cuError = cudaMemcpy (*d_i, h_i, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMemcpy (*d_e, h_e, N*sizeof(particle), cudaMemcpyHostToDevice);
-  cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMemcpy (*d_i_bm, h_i_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError, __FILE__, __LINE__);
-  cuError = cudaMemcpy (*d_e_bm, h_e_bm, 2*ncy*sizeof(int), cudaMemcpyHostToDevice);
-  cu_check(cuError, __FILE__, __LINE__);
+  // create particles (ions)
+  cudaGetLastError();
+  create_particles_kernel<<<CURAND_BLOCK_DIM, 1>>>(*d_i, *d_i_bm, kti, mi, N, ncy, Lx, ds, *state);
+  cu_sync_check(__FILE__, __LINE__);
 
-  // free host memory
-  free(h_i);
-  free(h_e);
-  free(h_i_bm);
-  free(h_e_bm);
-  
   return;
 }
 
 /**********************************************************/
 
-void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm)
+void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle *d_i, 
+                     int *d_i_bm, particle *d_e, int *d_e_bm)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -790,6 +760,79 @@ int init_n_fin(void)
 
 /******************** DEVICE KERNELS DEFINITIONS *********************/
 
+__global__ void init_philox_state(curandStatePhilox4_32_10_t *state)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  
+  // kernel registers
+  int tid = (int) threadIdx.x + (int) blockIdx.x * (int) blockDim.x;
+  curandStatePhilox4_32_10_t local_state;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  // load states in local memory 
+  local_state = state[tid];
+
+  // initialize each thread state (seed, second seed, offset, pointer to state)
+  curand_init (0, tid, 0, &local_state);
+
+  // store initialized states in global memory
+  state[tid] = local_state;
+
+  return;
+} 
+
+/**********************************************************/
+__global__ void create_particles_kernel(particles *g_p, int *g_p_bm, double kt, double m, int N, 
+                                        int ncy, double Lx, double ds,  curandStatePhilox4_32_10_t *state)
+{
+  /*--------------------------- kernel variables -----------------------*/
+  
+  // kernel shared memory
+  __shared__ int s_p_bm[2];
+  
+  // kernel registers
+  particle reg_p;
+  int ncell = (int) (N/ncy);
+  double sigma = sqrt(kt/m);
+  int tid = (int) threadIdx.x + (int) blockIdx.x * (int) blockDim.x;
+  int bdim = (int) blockDim.x;
+  curandStatePhilox4_32_10_t local_state;
+  double2 rnd;
+  
+  /*--------------------------- kernel body ----------------------------*/
+  
+  //---- load philox states from global memory
+  local_state = state[tid];
+
+  //---- initialize each bin 
+  for (int i = 0; i < ncy; i++) {
+    // set bookmarks for the bin
+    if (tid < 2) s_p_bm[tid] = ((i+tid)*ncell)-tid;
+    __syncthreads();
+    // create particles of the bin
+    for (int j = tid; j < ncell; j+=bdim)
+    {
+      rnd = curand_uniform2_double(&local_state);
+      reg_p.x = rnd.x*Lx;
+      reg_p.y = (double(i)+rnd.y)*ds;
+      rnd = curand_normal2_double(&local_state);
+      reg_p.vx = rng.x*sigma;
+      reg_p.vy = rng.y*sigma;
+      // store particles in global memory
+      g_p[s_p_bm[0]+j] = reg_p;
+    }
+    if (tid < 2) g_p_bm[i*2+tid] = s_p_bm[tid];
+    __syncthreads();
+  }
+
+  return;
+}
+
+/**********************************************************/
+
 __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy) 
 {
   /*--------------------------- kernel variables -----------------------*/
@@ -833,3 +876,5 @@ __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, doub
 }
 
 /**********************************************************/
+
+

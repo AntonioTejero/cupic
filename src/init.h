@@ -13,7 +13,7 @@
 /****************************** HEADERS ******************************/
 
 #include "stdh.h"
-#include "gslrand.h"
+#include "random.h"
 #include "mesh.h"
 #include "particles.h"
 #include "dynamic_sh_mem.h"
@@ -30,9 +30,14 @@
 
 // host functions
 void init_dev(void);
-void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, int **d_e_bm, int **d_i_bm, double *t);
-void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm);
-void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm);
+void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, 
+              int **d_e_bm, int **d_i_bm, double *t, curandStatePhilox4_32_10_t **state);
+void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle **d_e, particle **d_i, 
+              int **d_e_bm, int **d_i_bm, double *t, curandStatePhilox4_32_10_t **state);
+void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm, 
+                      curandStatePhilox4_32_10_t **state);
+void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle *d_i, 
+                     int *d_i_bm, particle *d_e, int *d_e_bm);
 void adjust_leap_frog(particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm, double *d_Ex, double *d_Ey);
 void load_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm);
 void read_particle_file(string filename, particle **d_p, int **d_bm);
@@ -63,6 +68,7 @@ int init_n_save(void);
 int init_n_fin(void);
 
 // device kernels
+__global__ void init_philox_state(curandStatePhilox4_32_10_t *state);
 __global__ void fix_velocity(double dt, double m, particle *g_p, int *g_bm, double *g_Fx, double *g_Fy);
 
 #endif
