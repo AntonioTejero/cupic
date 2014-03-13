@@ -4,7 +4,7 @@ CC = g++
 NVCC = nvcc
 #NVCCFLAGS = -arch=sm_20 -Xptxas -v
 NVCCFLAGS = -arch=sm_20
-LINKERFLAGS = -lgsl -lgslcblas -lcuda -lcudart
+LINKERFLAGS = -lcuda -lcudart -lcurand
 
 OBJECTS = main.o init.o cc.o mesh.o particles.o diagnostic.o cuda.o
 

@@ -12,8 +12,6 @@
 
 /****************************** HEADERS ******************************/
 
-#include <gsl/gsl_rng.h>        //gsl library for random number generation
-#include <gsl/gsl_randist.h>    //gsl library for random number generation (distribution functions)
 #include <curand_kernel.h>      //curand library for random number generation (__device__ functions)
 
 /************************ SIMBOLIC CONSTANTS *************************/
