@@ -119,11 +119,7 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   const double ds = init_ds();      // spatial step size
   const int ncy = init_ncy();       // number of cells in the y dimension
   
-  particle *h_i, *h_e;              // host vectors of particles
-  int *h_e_bm, *h_i_bm;             // host vectors for bookmarks
   int N;                            // initial number of particles of each especie
-
-  gsl_rng *rng = gsl_rng_alloc(gsl_rng_default); // default random number generator (gsl)
 
   cudaError_t cuError;              // cuda error variable
   
