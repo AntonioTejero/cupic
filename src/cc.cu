@@ -158,14 +158,8 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
   int length;                             // length of new particle vectors
   particle *dummy_p;                      // host dummy vector for particle storage
   
-  double h_Ex[nnx*nny], h_Ey[nnx*nny];    // host memory for electric fields
-  double Epx, Epy;                        // fields at particle position
-  int ic, jc;                             // indices of particle cell
-  double distx, disty;                    // distance from particle to nodes
-  
-  static gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);  //default random number generator (gsl)
-
   cudaError cuError;
+  size_t sh_mem_size;
   
   // device memory
   
@@ -200,7 +194,7 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     cu_check(cuError, __FILE__, __LINE__);
     cuError = cudaMemcpy(*d_p, dummy_p, (length-in)*sizeof(particle), cudaMemcpyDeviceToDevice);
     cu_check(cuError, __FILE__, __LINE__);
-    cuError = cudaFree(*dummy_p);
+    cuError = cudaFree(dummy_p);
     cu_check(cuError, __FILE__, __LINE__);
 
     // actualize bookmarks (left removed particles)
@@ -225,9 +219,11 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
  
     // add particles
     if (in != 0) {
+      // define size of shared memory 
+      sh_mem_size = 2*sizeof(int)+4*nnx*sizeof(double);
       cudaGetLastError();
-      pEmi<<<CURAND_BLOCK_DIM, 1>>>(*d_p, d_bm, d_Ex, d_Ey, in, kt, m, Lx, ds, ncy, nnx, fpt, fvt, 
-                                    *tin, dtin, state);
+      pEmi<<<1, CURAND_BLOCK_DIM, sh_mem_size>>>(*d_p, d_bm, d_Ex, d_Ey, in, kt, m, Lx, ds, ncy, nnx, fpt, 
+                                                 fvt, *tin, dtin, state);
       cu_sync_check(__FILE__, __LINE__);
 
       // actualize time for next particle insertion
@@ -786,9 +782,9 @@ __global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n
   /*--------------------------- kernel variables -----------------------*/
   
   // kernel shared memory
-  __shared__ int sh_bm[2];
-  __shared__ double sh_Ex[2*nnx];
-  __shared__ double sh_Ey[2*nnx];
+  int *sh_bm = (int *) sh_mem;
+  double *sh_Ex = (double *) &sh_bm[2];
+  double *sh_Ey = (double *) &sh_Ex[2*nnx];
   
   // kernel registers
   particle reg_p;
