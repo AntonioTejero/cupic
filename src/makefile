@@ -2,9 +2,9 @@
 
 CC = g++
 NVCC = nvcc
-#NVCCFLAGS = -arch=sm_20 -Xptxas -v
-NVCCFLAGS = -arch=sm_20
-LINKERFLAGS = -lcuda -lcudart -lcurand
+ARCHITECTURE = sm_20
+NVCCFLAGS = -arch=$(ARCHITECTURE)
+LINKERFLAGS = -arch=$(ARCHITECTURE) -lcurand 
 
 OBJECTS = main.o init.o cc.o mesh.o particles.o diagnostic.o cuda.o
 
@@ -12,7 +12,7 @@ OBJECTS = main.o init.o cc.o mesh.o particles.o diagnostic.o cuda.o
 # Makefile orders
 
 CUPIC : $(OBJECTS)
-	$(NVCC) $(NVCCFLAGS) $(LINKERFLAGS) $(OBJECTS) -o cupic
+	$(NVCC) $(LINKERFLAGS) $(OBJECTS) -o cupic
 	rm *~ -f
 	mv ./cupic ../bin/cupic
 
