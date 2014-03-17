@@ -131,7 +131,7 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   cuError = cudaMalloc ((void **) state, CURAND_BLOCK_DIM*sizeof(curandStatePhilox4_32_10_t));
   cu_check(cuError, __FILE__, __LINE__);
   cudaGetLastError();
-  init_philox_state<<<CURAND_BLOCK_DIM, 1>>>(curandStatePhilox4_32_10_t *state);
+  init_philox_state<<<CURAND_BLOCK_DIM, 1>>>(*state);
   cu_sync_check(__FILE__, __LINE__);
 
   // calculate initial number of particles
@@ -781,7 +781,7 @@ __global__ void init_philox_state(curandStatePhilox4_32_10_t *state)
 } 
 
 /**********************************************************/
-__global__ void create_particles_kernel(particles *g_p, int *g_p_bm, double kt, double m, int N, 
+__global__ void create_particles_kernel(particle *g_p, int *g_p_bm, double kt, double m, int N, 
                                         int ncy, double Lx, double ds,  curandStatePhilox4_32_10_t *state)
 {
   /*--------------------------- kernel variables -----------------------*/
@@ -815,8 +815,8 @@ __global__ void create_particles_kernel(particles *g_p, int *g_p_bm, double kt, 
       reg_p.x = rnd.x*Lx;
       reg_p.y = (double(i)+rnd.y)*ds;
       rnd = curand_normal2_double(&local_state);
-      reg_p.vx = rng.x*sigma;
-      reg_p.vy = rng.y*sigma;
+      reg_p.vx = rnd.x*sigma;
+      reg_p.vy = rnd.y*sigma;
       // store particles in global memory
       g_p[s_p_bm[0]+j] = reg_p;
     }
