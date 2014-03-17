@@ -131,7 +131,7 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
   cuError = cudaMalloc ((void **) state, CURAND_BLOCK_DIM*sizeof(curandStatePhilox4_32_10_t));
   cu_check(cuError, __FILE__, __LINE__);
   cudaGetLastError();
-  init_philox_state<<<CURAND_BLOCK_DIM, 1>>>(*state);
+  init_philox_state<<<1, CURAND_BLOCK_DIM>>>(*state);
   cu_sync_check(__FILE__, __LINE__);
 
   // calculate initial number of particles
@@ -151,12 +151,12 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
 
   // create particles (electrons)
   cudaGetLastError();
-  create_particles_kernel<<<CURAND_BLOCK_DIM, 1>>>(*d_e, *d_e_bm, kte, me, N, ncy, Lx, ds, *state);
+  create_particles_kernel<<<1, CURAND_BLOCK_DIM>>>(*d_e, *d_e_bm, kte, me, N, ncy, Lx, ds, *state);
   cu_sync_check(__FILE__, __LINE__);
 
   // create particles (ions)
   cudaGetLastError();
-  create_particles_kernel<<<CURAND_BLOCK_DIM, 1>>>(*d_i, *d_i_bm, kti, mi, N, ncy, Lx, ds, *state);
+  create_particles_kernel<<<1, CURAND_BLOCK_DIM>>>(*d_i, *d_i_bm, kti, mi, N, ncy, Lx, ds, *state);
   cu_sync_check(__FILE__, __LINE__);
 
   return;
@@ -802,7 +802,7 @@ __global__ void create_particles_kernel(particle *g_p, int *g_p_bm, double kt, d
   
   //---- load philox states from global memory
   local_state = state[tid];
-
+  
   //---- initialize each bin 
   for (int i = 0; i < ncy; i++) {
     // set bookmarks for the bin
