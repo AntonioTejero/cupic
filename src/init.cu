@@ -87,7 +87,7 @@ void init_sim(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, part
     *t = n_ini*dt;
 
     // read particle from file
-    load_particles(d_i, d_i_bm, d_e, d_e_bm);
+    load_particles(d_i, d_i_bm, d_e, d_e_bm, state);
     
     // initialize mesh variables
     initialize_mesh(d_rho, d_phi, d_Ex, d_Ey, *d_i, *d_i_bm, *d_e, *d_e_bm);
@@ -290,17 +290,25 @@ void adjust_leap_frog(particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm, do
 
 /**********************************************************/
 
-void load_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm)
+void load_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm, curandStatePhilox4_32_10_t **state)
 {
   /*--------------------------- function variables -----------------------*/
 
   // host memory
   char filename[50];
 
+  cudaError_t cuError;              // cuda error variable
+
   // device memory
 
   /*----------------------------- function body -------------------------*/
 
+  // initialize curand philox states
+  cuError = cudaMalloc ((void **) state, CURAND_BLOCK_DIM*sizeof(curandStatePhilox4_32_10_t));
+  cu_check(cuError, __FILE__, __LINE__);
+  cudaGetLastError();
+  init_philox_state<<<1, CURAND_BLOCK_DIM>>>(*state);
+  cu_sync_check(__FILE__, __LINE__);
   sprintf(filename, "./ions.dat");
   read_particle_file(filename, d_i, d_i_bm);
   sprintf(filename, "./electrons.dat");

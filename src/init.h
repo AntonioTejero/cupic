@@ -39,7 +39,7 @@ void create_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm
 void initialize_mesh(double **d_rho, double **d_phi, double **d_Ex, double **d_Ey, particle *d_i, 
                      int *d_i_bm, particle *d_e, int *d_e_bm);
 void adjust_leap_frog(particle *d_i, int *d_i_bm, particle *d_e, int *d_e_bm, double *d_Ex, double *d_Ey);
-void load_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm);
+void load_particles(particle **d_i, int **d_i_bm, particle **d_e, int **d_e_bm, curandStatePhilox4_32_10_t **state);
 void read_particle_file(string filename, particle **d_p, int **d_bm);
 void read_input_file(void *data, int data_size, int n);
 double init_qi(void);
