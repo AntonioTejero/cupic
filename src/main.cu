@@ -60,18 +60,23 @@ int main (int argc, const char* argv[])
   for (int i = n_ini+1; i <= n_fin; i++, t += dt) {
     // deposit charge into the mesh nodes
     charge_deposition(d_rho, d_e, d_e_bm, d_i, d_i_bm);
+    cout << "Charge deposited" << endl;
     
     // solve poisson equation
     poisson_solver(1.0e-4, d_rho, d_phi);
+    cout << "Poisson eq. solved" << endl;
     
     // derive electric fields from potential
     field_solver(d_phi, d_Ex, d_Ey);
+    cout << "Fields soved" << endl;
     
     // move particles
     particle_mover(d_e, d_e_bm, d_i, d_i_bm, d_Ex, d_Ey);
-    
+    cout << "Particles moved" << endl;
+
     // contour condition
     cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey, state);
+    cout << "Contour conditions applied" << endl;
 
     // reset cuda device
     if (i%10000 == 0) cuda_reset(&d_rho, &d_phi, &d_Ex, &d_Ey, &d_e, &d_i, &d_e_bm, &d_i_bm);
@@ -91,7 +96,7 @@ int main (int argc, const char* argv[])
       //sprintf(filename, "../output/particles/bins_electrons_t_%d", i);
       //save_bins(d_e_bm, d_e, filename);
     }
-    
+     
     // print simulation time
     cout << "t = " << t << endl;
   }
