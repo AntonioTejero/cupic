@@ -4,7 +4,7 @@
 
 PARTICLE_TIPE=electron
 INI=0
-FIN=100000
+FIN=5500
 INC=1
 
 ### SCRIPT CONFIGURATION (NOT USER ACCESIBLE) ###
@@ -50,8 +50,7 @@ echo set size 0.45,0.85 >> plot.gpi
 echo set origin 0.51,0.07 >> plot.gpi
 echo -e set title \""$PARTICLE_TIPE" velocity distribution \(t = \".i.\"\)\" >> plot.gpi
 echo -e stats \'./"$PARTICLE_TIPE"s_t_\'.i.\'.dat\' u \(sqrt\(\$3**2+\$4**2\)\) nooutput >> plot.gpi
-echo -e plot \'./"$PARTICLE_TIPE"s_t_\'.i.\'.dat\' u \(bin\(sqrt\(\$3**2+\$4**2\), \(STATS_max-STATS_min\)/$NUMBER_OF_BINS\)\):\(1.0\) smooth freq with\
-boxes lc rgb \"red\" >> plot.gpi
+echo -e plot \'./"$PARTICLE_TIPE"s_t_\'.i.\'.dat\' u \(bin\(sqrt\(\$3**2+\$4**2\), \(STATS_max-STATS_min\)/$NUMBER_OF_BINS\)\):\(1.0\) smooth freq with boxes lc rgb \"red\" >> plot.gpi
 echo set ytics >> plot.gpi
 
 echo unset multiplot >> plot.gpi
