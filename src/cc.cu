@@ -839,10 +839,10 @@ __global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n
     Epy += sh_Ey[ic+1+(jc+1)*nnx]*distx*disty;
         
     // simple push
-    reg_p.x += (fpt-tin*double(i)*dtin)*reg_p.vx;
-    reg_p.y += (fpt-tin*double(i)*dtin)*reg_p.vy;
-    reg_p.vx -= (fvt-tin*double(i)*dtin)*Epx/m;
-    reg_p.vy -= (fvt-tin*double(i)*dtin)*Epy/m;
+    reg_p.x += (fpt-(tin+double(i)*dtin))*reg_p.vx;
+    reg_p.y += (fpt-(tin+double(i)*dtin))*reg_p.vy;
+    reg_p.vx -= (fvt-(tin+double(i)*dtin))*Epx/m;
+    reg_p.vy -= (fvt-(tin+double(i)*dtin))*Epy/m;
 
     // store new particles in global memory
     g_p[sh_bm[1]-i] = reg_p;
