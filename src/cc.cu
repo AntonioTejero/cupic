@@ -12,7 +12,7 @@
 
 /********************* HOST FUNCTION DEFINITIONS *********************/
 
-void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ex, double *d_Ey,
+void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, double *d_Ey,
          curandStatePhilox4_32_10_t *state)
 {
   /*--------------------------- function variables -----------------------*/
@@ -52,7 +52,7 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   cuError = cudaMemcpy (d_new_bm, d_e_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
   cu_check(cuError, __FILE__, __LINE__);
   particle_bining(Lx, ds, ncy, d_e_bm, d_new_bm, *d_e);
-  abs_emi_cc(t, &tin_e, dtin_e, kte, me, d_e_bm, d_new_bm, d_e, d_Ex, d_Ey, state);
+  abs_emi_cc(t, &tin_e, dtin_e, kte, me, -1.0, d_e_bm, d_new_bm, d_e, d_Ey, state);
   cyclic_cc(ncy, Lx, d_e_bm, *d_e);
 
   //---- ions contour conditions
@@ -60,7 +60,7 @@ void cc (double t, int *d_e_bm, particle **d_e, int *d_i_bm, particle **d_i, dou
   cuError = cudaMemcpy (d_new_bm, d_i_bm, 2*ncy*sizeof(int), cudaMemcpyDeviceToDevice);
   cu_check(cuError, __FILE__, __LINE__);
   particle_bining(Lx, ds, ncy, d_i_bm, d_new_bm, *d_i);
-  abs_emi_cc(t, &tin_i, dtin_i, kti, mi, d_i_bm, d_new_bm, d_i, d_Ex, d_Ey, state);
+  abs_emi_cc(t, &tin_i, dtin_i, kti, mi, 1.0, d_i_bm, d_new_bm, d_i, d_Ey, state);
   cyclic_cc(ncy, Lx, d_i_bm, *d_i);
   
   // free device memory for new bookmark vector
@@ -132,8 +132,8 @@ void particle_bining(double Lx, double ds, int ncy, int *bm, int *new_bm, partic
 
 /**********************************************************/
 
-void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_bm, int *d_new_bm, 
-                particle **d_p, double *d_Ex, double *d_Ey, curandStatePhilox4_32_10_t *state)
+void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, double q, int *d_bm, int *d_new_bm, 
+                particle **d_p, double *d_Ey, curandStatePhilox4_32_10_t *state)
 {
   /*--------------------------- function variables -----------------------*/
   
@@ -220,9 +220,9 @@ void abs_emi_cc(double t, double *tin, double dtin, double kt, double m, int *d_
     // add particles
     if (in != 0) {
       // define size of shared memory 
-      sh_mem_size = 2*sizeof(int)+4*nnx*sizeof(double);
+      sh_mem_size = 2*sizeof(int)+nnx*sizeof(double);
       cudaGetLastError();
-      pEmi<<<1, CURAND_BLOCK_DIM, sh_mem_size>>>(*d_p, d_bm, d_Ex, d_Ey, in, kt, m, Lx, ds, ncy, nnx, fpt, 
+      pEmi<<<1, CURAND_BLOCK_DIM, sh_mem_size>>>(*d_p, d_bm, d_Ey, in, kt, m, q, Lx, ds, ncy, nnx, fpt, 
                                                  fvt, *tin, dtin, state);
       cu_sync_check(__FILE__, __LINE__);
 
@@ -775,7 +775,7 @@ __global__ void pCyclicCC(double Lx, int *g_bm, particle *g_p)
 
 /**********************************************************/
 
-__global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n_in, double kt, double m, 
+__global__ void pEmi(particle *g_p, int *g_bm, double *g_Ey, int n_in, double kt, double m, double q, 
                      double Lx, double ds, int ncy, int nnx, double fpt, double fvt, double tin, double dtin,
                      curandStatePhilox4_32_10_t *state)
 {
@@ -783,17 +783,14 @@ __global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n
   
   // kernel shared memory
   int *sh_bm = (int *) sh_mem;
-  double *sh_Ex = (double *) &sh_bm[2];
-  double *sh_Ey = (double *) &sh_Ex[2*nnx];
+  double *sh_Ey = (double *) &sh_bm[2];
   
   // kernel registers
   particle reg_p;
   double sigma = sqrt(kt/m);
-  double Epx, Epy;
+  double Epy;
   int ic;
-  int jc = 0;
   double distx;
-  double disty = 1.0;
   int tid = (int) threadIdx.x + (int) blockIdx.x * (int) blockDim.x;
   int tpb = (int) blockDim.x;
   curandStatePhilox4_32_10_t local_state;
@@ -804,9 +801,8 @@ __global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n
   //---- initialize shared memory
   if (tid < 2) sh_bm[tid] = g_bm[2*ncy-2+tid];
   __syncthreads();
-  for (int i = tid; i < 2*nnx; i+=tpb) {
-    sh_Ex[i] = g_Ex[(ncy-1)*nnx+i];
-    sh_Ey[i] = g_Ey[(ncy-1)*nnx+i];
+  for (int i = tid; i < nnx; i+=tpb) {
+    sh_Ey[i] = g_Ey[ncy*nnx+i];
   }
   __syncthreads();
 
@@ -827,22 +823,14 @@ __global__ void pEmi(particle *g_p, int *g_bm, double *g_Ex, double *g_Ey, int n
     // calculate distances from particle to down left vertex (normalized to ds)
     distx = fabs(double(ic)*ds-reg_p.x)/ds;
      
-    // interpolate fields from nodes to particle
-    Epx = sh_Ex[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
-    Epx += sh_Ex[ic+1+jc*nnx]*distx*(1.0-disty);
-    Epx += sh_Ex[ic+(jc+1)*nnx]*(1.0-distx)*disty;
-    Epx += sh_Ex[ic+1+(jc+1)*nnx]*distx*disty;
-        
-    Epy = sh_Ey[ic+jc*nnx]*(1.0-distx)*(1.0-disty);
-    Epy += sh_Ey[ic+1+jc*nnx]*distx*(1.0-disty);
-    Epy += sh_Ey[ic+(jc+1)*nnx]*(1.0-distx)*disty;
-    Epy += sh_Ey[ic+1+(jc+1)*nnx]*distx*disty;
+    // interpolate fields from nodes to particle (Ex = 0)
+    Epy += sh_Ey[ic]*(1.0-distx);
+    Epy += sh_Ey[ic+1]*distx;
         
     // simple push
     reg_p.x += (fpt-(tin+double(i)*dtin))*reg_p.vx;
     reg_p.y += (fpt-(tin+double(i)*dtin))*reg_p.vy;
-    reg_p.vx -= (fvt-(tin+double(i)*dtin))*Epx/m;
-    reg_p.vy -= (fvt-(tin+double(i)*dtin))*Epy/m;
+    reg_p.vy += (fvt-(tin+double(i)*dtin))*Epy*q/m;
 
     // store new particles in global memory
     g_p[sh_bm[1]-i] = reg_p;
