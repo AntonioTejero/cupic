@@ -75,7 +75,7 @@ int main (int argc, const char* argv[])
     cout << "Particles moved" << endl;
 
     // contour condition
-    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ex, d_Ey, state);
+    cc(t, d_e_bm, &d_e, d_i_bm, &d_i, d_Ey, state);
     cout << "Contour conditions applied" << endl;
 
     // reset cuda device
@@ -87,14 +87,14 @@ int main (int argc, const char* argv[])
       particles_snapshot(d_e, d_e_bm, filename, t);
       sprintf(filename, "../output/particles/ions_t_%d", i);
       particles_snapshot(d_i, d_i_bm, filename, t);
-      //sprintf(filename, "../output/charge/charge_t_%d", i-1);
-      //mesh_snapshot(d_rho, filename);
-      //sprintf(filename, "../output/potential/potential_t_%d", i-1);
-      //mesh_snapshot(d_phi, filename);
-      //sprintf(filename, "../output/particles/bm_electrons_t_%d", i);
-      //save_bm(d_e_bm, filename);
-      //sprintf(filename, "../output/particles/bins_electrons_t_%d", i);
-      //save_bins(d_e_bm, d_e, filename);
+      sprintf(filename, "../output/charge/charge_t_%d", i-1);
+      mesh_snapshot(d_rho, filename);
+      sprintf(filename, "../output/potential/potential_t_%d", i-1);
+      mesh_snapshot(d_phi, filename);
+      sprintf(filename, "../output/particles/bm_electrons_t_%d", i);
+      save_bm(d_e_bm, filename);
+      sprintf(filename, "../output/particles/bins_electrons_t_%d", i);
+      save_bins(d_e_bm, d_e, filename);
     }
      
     // print simulation time
